@@ -1,0 +1,460 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+public:	
+	// Sets default values for this actor's properties
+	$PREFIX$$UNPREFIXED_CLASS_NAME$();
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+public:	
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+
+public:	
+	// Sets default values for this component's properties
+	$PREFIX$$UNPREFIXED_CLASS_NAME$();
+
+protected:
+	// Called when the game starts
+	virtual void BeginPlay() override;
+
+public:	
+	// Called every frame
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+		
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=2BDC3D22F2AA233B936175530B4E461D/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=2BDC3D22F2AA233B936175530B4E461D/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=2BDC3D22F2AA233B936175530B4E461D/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=2BDC3D22F2AA233B936175530B4E461D/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=ADB98212EDF3FF4717288E6048F8FDC0/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=ADB98212EDF3FF4717288E6048F8FDC0/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=ADB98212EDF3FF4717288E6048F8FDC0/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=ADB98212EDF3FF4717288E6048F8FDC0/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=CD6CC7596E3E79334480EE35B1467D2C/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+
+public:
+	// Sets default values for this character's properties
+	$PREFIX$$UNPREFIXED_CLASS_NAME$();
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+public:	
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=CD6CC7596E3E79334480EE35B1467D2C/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=7CBA9F4399CABBC9049E84D28D477F1A/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=7CBA9F4399CABBC9049E84D28D477F1A/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=7CBA9F4399CABBC9049E84D28D477F1A/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=7CBA9F4399CABBC9049E84D28D477F1A/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=AC25A3DCD3D1F7FC88EFFBB0973A00DB/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+
+/**
+ * $END$
+ */
+class $CLASS_MODULE_API_MACRO$$UNPREFIXED_CLASS_NAME$
+{
+public:
+	$UNPREFIXED_CLASS_NAME$();
+	~$UNPREFIXED_CLASS_NAME$();
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=AC25A3DCD3D1F7FC88EFFBB0973A00DB/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=433027911D0FE7B9560AD6D429151666/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=433027911D0FE7B9560AD6D429151666/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=433027911D0FE7B9560AD6D429151666/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=433027911D0FE7B9560AD6D429151666/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=E0FACF94A2AE7CEA9DE93DD76810829E/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$PUBLIC_HEADER_INCLUDES$
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=E0FACF94A2AE7CEA9DE93DD76810829E/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/@KeyIndexDefined">False</s:Boolean>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=E0FACF94A2AE7CEA9DE93DD76810829E/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=E0FACF94A2AE7CEA9DE93DD76810829E/Field/=MODULE_005FNAME/Order/@EntryValue">2</s:Int64>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=E0FACF94A2AE7CEA9DE93DD76810829E/Field/=GAME_005FNAME/Order/@EntryValue">3</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=1C05992B6C83E471E795A410B8E60D6C/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=1C05992B6C83E471E795A410B8E60D6C/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=1C05992B6C83E471E795A410B8E60D6C/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=1C05992B6C83E471E795A410B8E60D6C/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=EB38AAC4B9D288ED6396FA985C041CC4/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=EB38AAC4B9D288ED6396FA985C041CC4/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=EB38AAC4B9D288ED6396FA985C041CC4/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=EB38AAC4B9D288ED6396FA985C041CC4/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+// This class does not need to be modified.
+UINTERFACE()
+class $PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+};
+
+/**
+ * 
+ */
+class $CLASS_MODULE_API_MACRO$I$UNPREFIXED_CLASS_NAME$
+{
+	GENERATED_BODY()
+
+	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
+public:
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=BE3093BD07633BEFC746686F83AA9461/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+
+public:
+	// Sets default values for this pawn's properties
+	$PREFIX$$UNPREFIXED_CLASS_NAME$();
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+public:	
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=BE3093BD07633BEFC746686F83AA9461/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=DD227847ED266B60BD2869D136FC683F/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=DD227847ED266B60BD2869D136FC683F/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=DD227847ED266B60BD2869D136FC683F/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=DD227847ED266B60BD2869D136FC683F/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A1E462C98D63BD9D31387C9A24F1AADD/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A1E462C98D63BD9D31387C9A24F1AADD/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A1E462C98D63BD9D31387C9A24F1AADD/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A1E462C98D63BD9D31387C9A24F1AADD/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=6368742DD25C737FF89B5382784B6FC8/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=6368742DD25C737FF89B5382784B6FC8/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=6368742DD25C737FF89B5382784B6FC8/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=6368742DD25C737FF89B5382784B6FC8/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=0666C1EEED726145DFE8120A6D9C5A6A/Text/@EntryValue">#pragma once
+
+$PUBLIC_HEADER_INCLUDES$
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=0666C1EEED726145DFE8120A6D9C5A6A/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/@KeyIndexDefined">False</s:Boolean>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=0666C1EEED726145DFE8120A6D9C5A6A/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=0666C1EEED726145DFE8120A6D9C5A6A/Field/=MODULE_005FNAME/Order/@EntryValue">2</s:Int64>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=0666C1EEED726145DFE8120A6D9C5A6A/Field/=MODULE_005FSTARTUP_005FCODE/Order/@EntryValue">3</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=CFA1AA122F79A1BE65C1220D413D0BA4/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+/**
+ * $END$
+ */
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	
+	
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=CFA1AA122F79A1BE65C1220D413D0BA4/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=CFA1AA122F79A1BE65C1220D413D0BA4/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=CFA1AA122F79A1BE65C1220D413D0BA4/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/InitialRange/@EntryValue">0</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=4C7325C8DFB2E6EBD5842BF217833F53/Text/@EntryValue">#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "DSP/Osc.h"
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+// ========================================================================
+// $PREFIX$$UNPREFIXED_CLASS_NAME$
+// Synth component class which implements USynthComponent
+// This is a simple hello-world type example which generates a sine-wave
+// tone using a DSP oscillator class and implements a single function to set
+// the frequency. To enable example:
+// 1. Ensure "SignalProcessing" is added to project's .Build.cs in PrivateDependencyModuleNames
+// 2. Enable macro below that includes code utilizing SignalProcessing Oscilator
+// ========================================================================
+
+#define SYNTHCOMPONENT_EX_OSCILATOR_ENABLED 0
+
+UCLASS(ClassGroup = Synth, meta = (BlueprintSpawnableComponent))
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+	// Called when synth is created
+	virtual bool Init(int32&amp; SampleRate) override;
+
+	// Called to generate more audio
+	virtual int32 OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
+
+	// Sets the oscillator's frequency
+	UFUNCTION(BlueprintCallable, Category = "Synth|Components|Audio")
+	void SetFrequency(const float FrequencyHz = 440.0f);
+
+protected:
+#if SYNTHCOMPONENT_EX_OSCILATOR_ENABLED
+	// A simple oscillator class. Can also generate Saw/Square/Tri/Noise.
+	Audio::FOsc Osc;
+#endif // SYNTHCOMPONENT_EX_OSCILATOR_ENABLED
+};</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=4C7325C8DFB2E6EBD5842BF217833F53/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean></wpf:ResourceDictionary>
