@@ -65,7 +65,8 @@ public class GaiaGame : ModuleRules
 				"CommonGame",
 				"CommonUser",
 				"GameSubtitles",
-				"GameplayMessageRuntime"
+				"GameplayMessageRuntime",
+				"GameplayCameras"
 			});
 		
 	}
