@@ -13,3 +13,4 @@ class AGaiaGameMode : public AModularGameModeBase
 public:
 	UE_API AGaiaGameMode(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 };
+#undef UE_API

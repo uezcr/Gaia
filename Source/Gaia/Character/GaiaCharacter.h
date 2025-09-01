@@ -21,3 +21,4 @@ public:
 
 	UE_API virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 };
+#undef UE_API

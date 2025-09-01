@@ -20,3 +20,5 @@ private:
 	UPROPERTY(Transient)
 	mutable TObjectPtr<UGaiaSettingsShared> SharedSettings;
 };
+
+#undef UE_API

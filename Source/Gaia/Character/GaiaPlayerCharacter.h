@@ -35,3 +35,4 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Gaia|Input")
 	FInputMappingContextAndPriority DefaultInputMapping;
 };
+#undef UE_API

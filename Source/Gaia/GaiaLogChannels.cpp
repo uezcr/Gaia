@@ -4,6 +4,7 @@
 DEFINE_LOG_CATEGORY(LogGaia);
 DEFINE_LOG_CATEGORY(LogGaiaExperience);
 DEFINE_LOG_CATEGORY(LogGaiaAbilitySystem);
+DEFINE_LOG_CATEGORY(LogGaiaContainer);
 
 FString GetClientServerContextString(UObject* ContextObject)
 {
