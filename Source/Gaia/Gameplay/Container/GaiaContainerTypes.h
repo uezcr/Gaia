@@ -3,6 +3,7 @@
 
 #include "GaiaContainerTypes.generated.h"
 
+class AGaiaItemBase;
 //物品稀有度.
 UENUM(BlueprintType)
 enum class EItemRarity : uint8
@@ -47,9 +48,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GaiaItem", meta = (EditCondition = "bHasContainer"))
 	FDataTableRowHandle ContainerRow;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GaiaItem")
-	TSoftObjectPtr<UStaticMesh> StaticMesh;
+	TSoftClassPtr<AGaiaItemBase> ItemClass;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GaiaItem")
-	TSoftObjectPtr<USkeletalMesh> SkeletalMesh;
+	TSoftObjectPtr<UStaticMesh> SceneMesh;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GaiaItem")
+	int32 MaximumStack = 1;
 };
 
 USTRUCT(BlueprintType)
@@ -61,6 +64,17 @@ public:
 	FName ItemId;
 	UPROPERTY(BlueprintReadWrite, Category = "GaiaItemInfo")
 	int32 ItemQuantity;
+
+	FGaiaItemInfo()
+	{
+		ItemId = NAME_None;
+		ItemQuantity = 0;
+	}
+	FGaiaItemInfo(FName InItemId, int32 InItemQuantity)
+	{
+		ItemId = InItemId;
+		ItemQuantity = InItemQuantity;
+	}
 };
 
 USTRUCT(BlueprintType)

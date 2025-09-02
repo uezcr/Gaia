@@ -1,25 +1,46 @@
 #include "GaiaItemBase.h"
 
+#include "GaiaContainerLibrary.h"
 #include "GaiaLogChannels.h"
 
 AGaiaItemBase::AGaiaItemBase() : ItemInfo()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 }
 
-void AGaiaItemBase::InitializeItem()
+void AGaiaItemBase::NativePreInitializeItem(const FGaiaItemInfo& InItemInfo)
 {
-	if (ItemInfo.ItemId == NAME_None)
+	if (InItemInfo.ItemId == NAME_None)
 	{
-		UE_LOG(LogGaiaContainer, Warning, TEXT("%s : Item initialize failed, Invalid ItemId."), *GetName());
+		UE_LOG(LogGaiaContainer,Warning,TEXT("AGaiaItemBase::PreInitializeItem Failed, Invalid Id"));
+		return;
 	}
-	FGaiaItemConfig ItemConfig;
+	FGaiaItemConfig DefaultConfig;
+	if (!UGaiaContainerLibrary::GetItemConfigByItemId(InItemInfo.ItemId,DefaultConfig))
+	{
+		UE_LOG(LogGaiaContainer,Warning,TEXT("AGaiaItemBase::PreInitializeItem Failed, Invalid ItemConfig"));
+		return;
+	}
+	ItemInfo.ItemId = InItemInfo.ItemId;
+	ItemInfo.ItemQuantity = FMath::Clamp(InItemInfo.ItemQuantity,0,DefaultConfig.MaximumStack);
+	PreInitializeItem();
+	NativeInitializeItem(DefaultConfig);
 }
+
+void AGaiaItemBase::NativeInitializeItem(const FGaiaItemConfig& InItemConfig)
+{
+	InitializeItem(InItemConfig);
+}
+
+void AGaiaItemBase::NativePostInitializeItem()
+{
+	PostInitializeItem();
+}
+
 
 void AGaiaItemBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 
