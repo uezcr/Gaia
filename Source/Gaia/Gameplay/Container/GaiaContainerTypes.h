@@ -60,20 +60,31 @@ struct FGaiaItemInfo
 {
 	GENERATED_USTRUCT_BODY()
 public:
+	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+	int64 ItemUID;
 	UPROPERTY(BlueprintReadWrite, Category = "GaiaItemInfo")
-	FName ItemId;
-	UPROPERTY(BlueprintReadWrite, Category = "GaiaItemInfo")
-	int32 ItemQuantity;
+	FName ItemName;
+	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+	int64 ContainerUID;
 
 	FGaiaItemInfo()
 	{
-		ItemId = NAME_None;
-		ItemQuantity = 0;
+		ItemUID = INDEX_NONE;
+		ItemName = NAME_None;
+		ContainerUID = INDEX_NONE;
 	}
-	FGaiaItemInfo(FName InItemId, int32 InItemQuantity)
+
+	FGaiaItemInfo(const FName& InItemName)
 	{
-		ItemId = InItemId;
-		ItemQuantity = InItemQuantity;
+		ItemName = InItemName;
+		ItemUID = INDEX_NONE;
+		ContainerUID = INDEX_NONE;
+	}
+
+	void Reset()
+	{
+		ItemUID = INDEX_NONE;
+		ContainerUID = INDEX_NONE;
 	}
 };
 
@@ -83,7 +94,7 @@ struct FGaiaContainerConfig : public FTableRowBase
 	GENERATED_USTRUCT_BODY()
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GaiaContainer")
-	FText Name;
+	FName ContainerName;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GaiaContainer")
 	FText Description;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GaiaContainer", DisplayName = "可容纳物品类型", meta=(ShortTooltip = "可容纳物品类型"))
@@ -96,5 +107,29 @@ public:
 	bool operator > (const FGameplayTagContainer& ObjectTags) const
 	{
 		return ContainerTags.HasAnyExact(ObjectTags);
+	}
+
+	bool operator > (const FGaiaItemConfig& ItemConfig) const
+	{
+		return ContainerTags.HasAnyExact(ItemConfig.ItemTags);
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FGaiaContainerInfo
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+	int64 ContainerUID;
+	UPROPERTY(BlueprintReadWrite, Category = "GaiaItemInfo")
+	FName ContainerName;
+	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+	TArray<int32> ItemUIDs;
+	
+	FGaiaContainerInfo& operator = (const FGaiaContainerInfo& Other)
+	{
+		ItemUIDs = Other.ItemUIDs;
+		return *this;
 	}
 };

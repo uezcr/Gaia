@@ -13,6 +13,8 @@ class UGaiaContainerLibrary : public UBlueprintFunctionLibrary
 
 public:
 	UFUNCTION(BlueprintPure, Category = "Get")
-	static UE_API bool GetItemConfigByItemId(const FName InItemId, FGaiaItemConfig& OutItemConfig);
+	static UE_API bool GetItemConfig(const FName InItemId, FGaiaItemConfig& OutItemConfig);
+	UFUNCTION(BlueprintPure, Category = "Get")
+	static UE_API bool GetContainerConfig(const FName InContainerName, FGaiaContainerConfig& OutContainerConfig);
 };
 #undef UE_API

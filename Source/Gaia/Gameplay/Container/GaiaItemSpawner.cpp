@@ -1,6 +1,7 @@
 #include "GaiaItemSpawner.h"
 
 #include "GaiaContainerLibrary.h"
+#include "GaiaContainerSubSystem.h"
 #include "GaiaItemBase.h"
 #include "IDetailTreeNode.h"
 #include "Kismet/GameplayStatics.h"
@@ -19,13 +20,21 @@ void AGaiaItemSpawner::SpawnItem()
 	if (FGaiaItemConfig* LoadConfig = SpawnItemRow.GetRow<FGaiaItemConfig>(TEXT("Context")))
 	{
 		FGaiaItemConfig SpawnConfig = *LoadConfig;
-		if (UClass* SpawnClass = SpawnConfig.ItemClass.LoadSynchronous())
+		FGaiaItemInfo NewItemInfo = FGaiaItemInfo(SpawnConfig.ItemName);
+		UGameInstance* GameInstance = GetGameInstance();
+		if (UGaiaContainerSubSystem* ContainerSubSystem = GameInstance->GetSubsystem<UGaiaContainerSubSystem>())
 		{
-			if (AGaiaItemBase* SpawnItem = GetWorld()->SpawnActorDeferred<AGaiaItemBase>(SpawnClass,GetActorTransform(),
-				nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn,ESpawnActorScaleMethod::MultiplyWithRoot))
+			if (ContainerSubSystem->RequestNewItem(NewItemInfo))
 			{
-				SpawnItem->NativePreInitializeItem(FGaiaItemInfo(SpawnConfig.ItemName,SpawnNum));
-				UGameplayStatics::FinishSpawningActor(SpawnItem,GetActorTransform());
+				if (UClass* SpawnClass = SpawnConfig.ItemClass.LoadSynchronous())
+				{
+					if (AGaiaItemBase* SpawnItem = GetWorld()->SpawnActorDeferred<AGaiaItemBase>(SpawnClass,GetActorTransform()))
+					{
+						SpawnItem->NativePreInitializeItem(NewItemInfo);
+						FGaiaContainerInfo FGaiaContainerInfo;
+						UGameplayStatics::FinishSpawningActor(SpawnItem,GetActorTransform());
+					}
+				}
 			}
 		}
 	}
