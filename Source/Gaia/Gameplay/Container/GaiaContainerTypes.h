@@ -3,6 +3,7 @@
 
 #include "GaiaContainerTypes.generated.h"
 
+class UGaiaContainerSlotWidget;
 class AGaiaItemBase;
 //物品稀有度.
 UENUM(BlueprintType)
@@ -66,12 +67,18 @@ public:
 	FName ItemName;
 	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
 	int64 ContainerUID;
+	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+	int64 ParentContainerUID = INDEX_NONE;
+	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+	FIntPoint ContainerLocation = FIntPoint::NoneValue;
 
 	FGaiaItemInfo()
 	{
 		ItemUID = INDEX_NONE;
 		ItemName = NAME_None;
 		ContainerUID = INDEX_NONE;
+		ParentContainerUID = INDEX_NONE;
+		ContainerLocation = FIntPoint::NoneValue;
 	}
 
 	FGaiaItemInfo(const FName& InItemName)
@@ -79,12 +86,16 @@ public:
 		ItemName = InItemName;
 		ItemUID = INDEX_NONE;
 		ContainerUID = INDEX_NONE;
+		ParentContainerUID = INDEX_NONE;
+		ContainerLocation = FIntPoint::NoneValue;
 	}
 
 	void Reset()
 	{
 		ItemUID = INDEX_NONE;
 		ContainerUID = INDEX_NONE;
+		ParentContainerUID = INDEX_NONE;
+		ContainerLocation = FIntPoint::NoneValue;
 	}
 };
 
@@ -103,7 +114,8 @@ public:
 	FIntPoint GridNums;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GaiaContainer", DisplayName = "容量", meta=(ShortTooltip = "容量"))
 	float Capacity;
-
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "GaiaContainer", DisplayName = "控件蓝图类")
+	TSoftClassPtr<UGaiaContainerSlotWidget> ContainerWidgetClass;
 	bool operator > (const FGameplayTagContainer& ObjectTags) const
 	{
 		return ContainerTags.HasAnyExact(ObjectTags);
@@ -115,6 +127,17 @@ public:
 	}
 };
 
+// USTRUCT(BlueprintType)
+// struct FGaiaItemSlotInfo
+// {
+// 	GENERATED_USTRUCT_BODY()
+// public:
+// 	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+// 	int64 ItemUID;
+// 	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
+// 	FIntPoint Location;
+// };
+
 USTRUCT(BlueprintType)
 struct FGaiaContainerInfo
 {
@@ -125,11 +148,16 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "GaiaItemInfo")
 	FName ContainerName;
 	UPROPERTY(BlueprintReadOnly, Category = "GaiaItemInfo")
-	TArray<int32> ItemUIDs;
-	
+	TMap<int32, int64> Items;
 	FGaiaContainerInfo& operator = (const FGaiaContainerInfo& Other)
 	{
-		ItemUIDs = Other.ItemUIDs;
+		Items = Other.Items;
 		return *this;
+	}
+
+	void Reset()
+	{
+		Items.Empty();
+		ContainerUID = INDEX_NONE;
 	}
 };

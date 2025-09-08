@@ -24,7 +24,7 @@ void AGaiaItemSpawner::SpawnItem()
 		UGameInstance* GameInstance = GetGameInstance();
 		if (UGaiaContainerSubSystem* ContainerSubSystem = GameInstance->GetSubsystem<UGaiaContainerSubSystem>())
 		{
-			if (ContainerSubSystem->RequestNewItem(NewItemInfo))
+			if (ContainerSubSystem->RequestNewItem(SpawnConfig.ItemName,NewItemInfo))
 			{
 				if (UClass* SpawnClass = SpawnConfig.ItemClass.LoadSynchronous())
 				{

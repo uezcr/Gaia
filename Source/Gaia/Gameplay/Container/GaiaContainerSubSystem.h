@@ -12,13 +12,23 @@ class GAIAGAME_API UGaiaContainerSubSystem : public UGameInstanceSubsystem
 
 public:
 	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
-	bool RequestNewItem(FGaiaItemInfo& InOutItemInfo);
+	bool RequestNewItem(const FName& InContainerName, FGaiaItemInfo& InOutItemInfo);
 	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
 	bool UpdateItemInfo(FGaiaItemInfo& InOutItemInfo);
 	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
-	bool RequestNewContainer(FGaiaContainerInfo& InOutContainerInfo);
+	bool RequestNewContainer(const FName& InContainerName, FGaiaContainerInfo& InOutContainerInfo);
 	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
 	bool UpdateContainerInfo(FGaiaContainerInfo& InOutContainerInfo);
+
+	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
+	bool GetItemInfo(const int64& InItemUID, FGaiaItemInfo& OutItemInfo);
+	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
+	bool GetContainerInfo(const int64& InContainerUID, FGaiaContainerInfo& OutContainerInfo);
+
+	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
+	void RemoveItemFromContainer(FGaiaContainerInfo& SourceContainer, const FGaiaItemInfo& ItemToRemove);
+	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
+	void AddItemToContainer(const int64& TargetContainerUID, const int64& ItemUID);
 
 
 	UFUNCTION(BlueprintCallable,Category = "GaiaContainerSubSystem")
@@ -38,7 +48,5 @@ private:
 	UPROPERTY(BlueprintReadOnly, Category = "GaiaContainerSubSystem", meta=(AllowPrivateAccess=true))
 	TMap<int64, FGaiaItemInfo> ItemInfos;
 	UPROPERTY(BlueprintReadOnly, Category = "GaiaContainerSubSystem", meta=(AllowPrivateAccess=true))
-	TMap<int64, FGaiaContainerInfo> ContainerUIDs;
-
-	
+	TMap<int64, FGaiaContainerInfo> Containers;
 };

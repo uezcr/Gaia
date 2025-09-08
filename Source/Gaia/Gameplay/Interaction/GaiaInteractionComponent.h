@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GaiaInteractionTypes.h"
 #include "Components/ActorComponent.h"
 #include "GaiaInteractionComponent.generated.h"
 
@@ -17,6 +18,7 @@ protected:
 	UE_API virtual void BeginPlay() override;
 
 public:
+	UE_API bool TryInteract();
 
 private:
 	UE_API void SetupInteraction();

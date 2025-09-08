@@ -16,6 +16,13 @@ void UGaiaInteractionComponent::BeginPlay()
 	SetupInteraction();
 }
 
+bool UGaiaInteractionComponent::TryInteract()
+{
+	FGaiaInteractionContext Context;
+	Context.Instigator = GetOwner();
+	return false;
+}
+
 void UGaiaInteractionComponent::SetupInteraction()
 {
 	AGaiaCharacter* Character = Cast<AGaiaCharacter>(GetOwner());

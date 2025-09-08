@@ -8,6 +8,14 @@
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=F1C5D9D6_002D8FB2_002D3F39_002DB34A_002D519D0234035B_002Fdl_003ASource_003A_002E_002E_003F_002E_002E_003F_002E_002E_003FUE_005F5_002E6_003FEngine_003FSource_002Fd_003ARuntime_002Fd_003AEngine_002Fd_003APrivate_002Fd_003AComponents_002Ff_003AActorComponent_002Ecpp/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=F1C5D9D6_002D8FB2_002D3F39_002DB34A_002D519D0234035B_002Fdl_003ASource_003A_002E_002E_003F_002E_002E_003F_002E_002E_003FUE_005F5_002E6_003FEngine_003FSource_002Fd_003ARuntime_002Fd_003AEngine_002Fd_003APrivate_002Ff_003AActor_002Ecpp/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=F1C5D9D6_002D8FB2_002D3F39_002DB34A_002D519D0234035B_002Fdl_003ASource_003A_002E_002E_003F_002E_002E_003F_002E_002E_003FUE_005F5_002E6_003FEngine_003FSource_002Fd_003ARuntime_002Fd_003AGameplayTags_002Fd_003AClasses_002Ff_003AGameplayTagContainer_002Eh/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=BASE_005FCLASS_005FINCLUDE_005FDIRECTIVE/Order/@EntryValue">1</s:Int64>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=CLASS_005FMODULE_005FAPI_005FMACRO/Order/@EntryValue">3</s:Int64>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=COPYRIGHT_005FLINE/Expression/@EntryValue"></s:String>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=COPYRIGHT_005FLINE/InitialRange/@EntryValue">0</s:Int64>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=COPYRIGHT_005FLINE/Order/@EntryValue">6</s:Int64>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Order/@EntryValue">5</s:Int64>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=PREFIX/Order/@EntryValue">4</s:Int64>
+	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=UNPREFIXED_005FCLASS_005FNAME/Order/@EntryValue">2</s:Int64>
 	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=BASE_005FCLASS_005FINCLUDE_005FDIRECTIVE/Order/@EntryValue">1</s:Int64>
 	<s:Int64 x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=CLASS_005FMODULE_005FAPI_005FMACRO/Order/@EntryValue">3</s:Int64>
 	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=COPYRIGHT_005FLINE/Expression/@EntryValue"></s:String>
@@ -395,18 +403,14 @@ $PUBLIC_HEADER_INCLUDES$
 $BASE_CLASS_INCLUDE_DIRECTIVE$
 #include "$UNPREFIXED_CLASS_NAME$.generated.h"
 
-/**
- * $END$
- */
+#define UE_API $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$
 UCLASS()
 class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
 {
 	GENERATED_BODY()
 	
-	
-	
-	
 };
+#undef UE_API
 </s:String>
 	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=24A2220B44966055102229D7D69A1C59/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
 	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=CFA1AA122F79A1BE65C1220D413D0BA4/Text/@EntryValue">#pragma once
