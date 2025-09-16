@@ -47,6 +47,21 @@ int32 UGaiaContainerSubSystem::GetItemIndexBySlotID(TArray<FGaiaItemInfo>& InIte
 	return INDEX_NONE;
 }
 
+FIntPoint UGaiaContainerSubSystem::IndexToTile(const int32 InIndex, const FIntPoint& InContainerSize)
+{
+	return FIntPoint(InIndex%InContainerSize.X, InIndex/InContainerSize.X);
+}
+
+bool UGaiaContainerSubSystem::IsItemStackable(const FName InItemID)
+{
+	FGaiaItemDefault ItemDefault;
+	if (GetItemDefaultByID(InItemID, ItemDefault))
+	{
+		return ItemDefault.bStackable;
+	}
+	return false;
+}
+
 bool UGaiaContainerSubSystem::MoveItem(int32 InSourceContainerUID, const FGaiaSlotAddress& InSourceSlotAddress,
                                        int32 InTargetContainerUID, const FGaiaSlotAddress& InTargetSlotAddress, int32 InAmount)
 {
@@ -72,14 +87,20 @@ bool UGaiaContainerSubSystem::RepositionItem(const FGaiaSlotAddress& InSourceSlo
 		return false;
 	}
 	const int32 ContainerUID = InSourceSlotAddress.ContainerUID;
-	if (Containers.Contains(ContainerUID))
+	if (!Containers.Contains(ContainerUID)) return false;
+	FGaiaItemInfo SourceItemInfoCopy;
+	if (!GetItemInfo(InSourceSlotAddress,SourceItemInfoCopy)) return false;
+	FGaiaItemInfo ItemToReposition = SourceItemInfoCopy;
+	ItemToReposition.ItemAmount = FMath::Clamp(InAmount,0,SourceItemInfoCopy.ItemAmount);
+	FGaiaSlotAddress DropAddress;
+	int32 DropAmount = 0;
+	if (!CanDropToSlot(ItemToReposition,InTargetSlotAddress,DropAddress,DropAmount)) return false;
+	ItemToReposition.ItemAmount = DropAmount;
+	if (DropAmount<SourceItemInfoCopy.ItemAmount)
 	{
-		FGaiaItemInfo SourceItemInfoCopy;
-		GetItemInfo(InSourceSlotAddress,SourceItemInfoCopy);
-		FGaiaItemInfo ItemToReposition = SourceItemInfoCopy;
-		ItemToReposition.ItemAmount = FMath::Clamp(InAmount,0,SourceItemInfoCopy.ItemAmount);
 		
 	}
+	//AddItemAmount();
 	return false;
 }
 
@@ -100,12 +121,46 @@ bool UGaiaContainerSubSystem::GetItemInfo(const FGaiaSlotAddress& InSlotAddress,
 	return false;
 }
 
-bool UGaiaContainerSubSystem::CanDropToSlot(const FGaiaItemInfo& InItemToDrop, const FGaiaSlotAddress& InTargetAddress) const
+bool UGaiaContainerSubSystem::CanDropToSlot(const FGaiaItemInfo& InItemToDrop, const FGaiaSlotAddress& InTargetAddress, FGaiaSlotAddress& OutDropAddress, int32& OutDropAmount)
 {
+	OutDropAddress = FGaiaSlotAddress();
+	OutDropAmount = 0;
 	if (!Containers.Contains(InTargetAddress.ContainerUID))
 	{
 		UE_LOG(LogGaiaContainer, Error, TEXT("UGaiaContainerSubSystem::CanDropToSlot 执行失败,容器UID无效."));
 		return false;
+	}
+	// 如果目标位置有物品,检查是否可以放到目标位置的容器中.
+	if (CanAddInside(InItemToDrop, InTargetAddress,OutDropAddress,OutDropAmount))
+	{
+		OutDropAmount = InItemToDrop.ItemAmount - OutDropAmount;
+		return true;
+	}
+	// 如果目标位置有物品,检查是否可以叠加.
+	if (TryToStack(InTargetAddress,InItemToDrop.ItemID,InItemToDrop.ItemAmount,OutDropAmount))
+	{
+		OutDropAddress = InTargetAddress;
+		OutDropAmount = InItemToDrop.ItemAmount - OutDropAmount;
+		return true;
+	}
+	// 开始正常检查.
+	if (InTargetAddress.SlotID == INDEX_NONE) return false;
+	FGaiaItemDefault ItemToDropDefault;
+	if (!GetItemDefaultByID(InItemToDrop.ItemID,ItemToDropDefault)) return false;
+	FGaiaContainerDefault ContainerDefault;
+	if (!GetContainerDefaultByID(Containers[InTargetAddress.ContainerUID].ContainerID,ContainerDefault)) return false;
+	if (!ContainerDefault.HasTag(ItemToDropDefault.ItemTag)) return false;
+	for (const FGaiaSlotInfo& SlotInfo : Containers[InTargetAddress.ContainerUID].Slots)
+	{
+		if (SlotInfo.SlotID == InTargetAddress.SlotID)
+		{
+			if (SlotInfo.ItemSlotID == INDEX_NONE)
+			{
+				OutDropAddress = InTargetAddress;
+				OutDropAmount = InItemToDrop.ItemAmount;
+				return true;
+			}
+		}
 	}
 	return false;
 }
@@ -118,9 +173,16 @@ bool UGaiaContainerSubSystem::CanAddInside(const FGaiaItemInfo& InItemToAdd, con
 	if (!GetItemInfo(InParentSlotAddress,ParentItemInfoCopy)) return false;
 	if (ParentItemInfoCopy.ItemAddress == InItemToAdd.ItemAddress) return false;
 	if (ParentItemInfoCopy.OwnContainerUID == INDEX_NONE) return false;
+	// 检查是否已经在这个容器里了.
 	if (InItemToAdd.ItemAddress.ContainerUID == ParentItemInfoCopy.OwnContainerUID) return false;
 	FGaiaItemDefault ItemToAddDefault;
 	if (!GetItemDefaultByID(InItemToAdd.ItemID,ItemToAddDefault)) return false;
+	// 开始检查是否可以放到物品自带的容器中.
+	int32 FoundSlotID = INDEX_NONE;
+	int32 Remainder = 0;
+	if (!ValidSpaceOnContainer(ParentItemInfoCopy.OwnContainerUID, InItemToAdd.ItemID,InItemToAdd.ItemAmount, FoundSlotID, Remainder)) return false;
+	OutAddressToAdd = FGaiaSlotAddress(ParentItemInfoCopy.OwnContainerUID, FoundSlotID);
+	OutRemainder = Remainder;
 	return false;
 }
 
@@ -146,6 +208,15 @@ bool UGaiaContainerSubSystem::ValidSpaceOnContainer(const int32 InContainerUID, 
 		}
 	}
 	// 没有可叠加的道具,找空位置.
+	for (const FGaiaSlotInfo& SlotInfo : Containers[InContainerUID].Slots)
+	{
+		if (SlotInfo.ItemSlotID == INDEX_NONE)
+		{
+			OutFoundSlotID = SlotInfo.SlotID;
+			OutRemainder = FMath::Max(InAmount - ItemToAddDefault.GetMaxStackSize(),0);
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -162,6 +233,49 @@ bool UGaiaContainerSubSystem::TryToStack(const FGaiaSlotAddress& InTargetItemAdd
 	if (!RemainderAmount < InItemAmount) return false;
 	OutRemainder = RemainderAmount;
 	return true;
+}
+
+void UGaiaContainerSubSystem::AddItemAmount(const FGaiaSlotAddress& InItemAddress, const int32 InAddAmount)
+{
+	FGaiaItemInfo ItemInfo;
+	const int32 ContainerUID = InItemAddress.ContainerUID;
+	if (!Containers.Contains(ContainerUID)) return;
+	if (!GetItemInfo(InItemAddress,ItemInfo)) return;
+	int32 NewAmount = ItemInfo.ItemAmount + InAddAmount;
+	if (NewAmount <= 0)
+	{
+		for (FGaiaSlotInfo& Slot : Containers[ContainerUID].Slots)
+		{
+			if (Slot.SlotID == InItemAddress.SlotID)
+			{
+				Slot.ItemSlotID = INDEX_NONE;
+				break;
+			}
+		}
+		for (int32 i = 0; i < Containers[ContainerUID].Items.Num(); i++)
+		{
+			if (Containers[ContainerUID].Items[i].ItemAddress == InItemAddress)
+			{
+				Containers[ContainerUID].Items.RemoveAt(i);
+				break;
+			}
+		}
+		//TODO Call Delegate
+	}
+	else
+	{
+		if (!IsItemStackable(ItemInfo.ItemID)) return;
+		
+		for (FGaiaItemInfo& Item : Containers[ContainerUID].Items)
+		{
+			if (Item.ItemAddress == InItemAddress)
+			{
+				Item.ItemAmount = InAddAmount;
+				//TODO Call Delegate
+				return;
+			}
+		}
+	}
 }
 
 bool UGaiaContainerSubSystem::RequestNewContainer(const FName InContainerID, FGaiaContainerInfo& OutContainerInfo)

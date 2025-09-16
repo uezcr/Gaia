@@ -29,6 +29,16 @@ struct FGaiaSlotAddress
 };
 
 USTRUCT(BlueprintType)
+struct FGaiaSlotInfo
+{
+	GENERATED_USTRUCT_BODY()
+	UPROPERTY(BlueprintReadWrite, Category = "GaiaSlotAddress")
+	int32 SlotID;
+	UPROPERTY(BlueprintReadWrite, Category = "GaiaSlotAddress")
+	int32 ItemSlotID;
+};
+
+USTRUCT(BlueprintType)
 struct FGaiaItemDefault : public FTableRowBase
 {
 	GENERATED_USTRUCT_BODY()
@@ -45,6 +55,11 @@ public:
 	bool bStackable;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GaiaItemDefaults")
 	int32 MaxStackSize;
+
+	int32 GetMaxStackSize() const
+	{
+		return bStackable ? MaxStackSize : 1;
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -101,6 +116,8 @@ public:
 	FName ContainerID;
 	UPROPERTY(BlueprintReadOnly, Category = "GaiaContainerInfo")
 	TArray<FGaiaItemInfo> Items;
+	UPROPERTY(BlueprintReadOnly, Category = "GaiaContainerInfo")
+	TArray<FGaiaSlotInfo> Slots;
 
 	FGaiaContainerInfo()
 	{
