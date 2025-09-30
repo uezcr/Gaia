@@ -124,4 +124,6 @@ public:
 		ContainerUID = INDEX_NONE;
 		ContainerID = NAME_None;
 	}
+
+	int32 GetItemIndexBySlotID(const int32 InSlotID);
 };

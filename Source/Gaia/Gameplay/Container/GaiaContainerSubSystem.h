@@ -36,6 +36,8 @@ public:
 	static FIntPoint IndexToTile(const int32 InIndex, const FIntPoint& InContainerSize);
 	UFUNCTION(BlueprintPure, Category = "Gaia|Container")
 	static bool IsItemStackable(const FName InItemID);
+	UFUNCTION(BlueprintPure, Category = "Gaia|Container")
+	static int32 ClampItemAmount(const FName InItemID, const int32 InItemAmount);
 	//~END STATIC FUNCTIONS
 
 	//~BEGIN MAIN FUNCTIONS
@@ -50,6 +52,14 @@ public:
 	bool ValidSpaceOnContainer(const int32 InContainerUID, const FName InItemID, const int32 InAmount,int32& OutFoundSlotID,int32& OutRemainder);
 	bool TryToStack(const FGaiaSlotAddress& InTargetItemAddress, const FName InItemID, const int32 InItemAmount, int32& OutRemainder);
 	void AddItemAmount(const FGaiaSlotAddress& InItemAddress, const int32 InAddAmount);
+	
+	void SetItemOnContainerByUID(const int32 InContainerUID, const FGaiaItemInfo& InItemInfo, const int32 InTargetSlotID);
+	static void SetItemOnContainer(FGaiaContainerInfo& InContainer, const FGaiaItemInfo& InItemInfo, const int32 InTargetSlotID);
+
+	void AddItemToContainerByUID(const int32 InContainerUID, const FGaiaItemInfo& InItem);
+	static void AddItemToContainer(FGaiaContainerInfo& InContainer, const FGaiaItemInfo& InItem);
+
+	static void SetSlotItemID(TArray<FGaiaSlotInfo>& InSlots, const int32 InTargetSlot, const int32 InItemSlotID);
 	//~END MAIN FUNCTIONS
 public:
 	UPROPERTY(BlueprintReadOnly, Category = "Gaia|Container")
