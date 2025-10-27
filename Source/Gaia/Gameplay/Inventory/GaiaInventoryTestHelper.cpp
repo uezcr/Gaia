@@ -581,15 +581,24 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 	PrintContainerInfo(InventorySystem, Container1UID, TEXT("Container1"));
 	PrintContainerInfo(InventorySystem, Container2UID, TEXT("Container2"));
 
-	// 测试7: 容器内移动
-	FMoveItemResult WithinContainerResult = InventorySystem->MoveItem(Item6.InstanceUID, Container1UID, 2, 3);
+	// 测试7: 容器内移动（需要先找到Item6的当前位置）
+	FGaiaItemInstance Item6Current;
+	if (!InventorySystem->FindItemByUID(Item6.InstanceUID, Item6Current))
+	{
+		LogTestResult(TEXT("容器内移动"), false, TEXT("- 无法找到Item6进行容器内移动测试"));
+		return false;
+	}
+	
+	// 容器内移动：从当前槽位移动3个到槽位2
+	FMoveItemResult WithinContainerResult = InventorySystem->MoveItem(Item6.InstanceUID, Item6Current.CurrentContainerUID, 2, 3);
 	if (!WithinContainerResult.IsSuccess())
 	{
 		LogTestResult(TEXT("容器内移动"), false, FString::Printf(TEXT("- 容器内移动失败: %s"), *FormatMoveResult(WithinContainerResult)));
 		return false;
 	}
 	
-	LogTestResult(TEXT("容器内移动"), true, FString::Printf(TEXT("- 成功容器内移动 %d 个物品"), WithinContainerResult.MovedQuantity));
+	LogTestResult(TEXT("容器内移动"), true, FString::Printf(TEXT("- 成功从槽位%d移动%d个物品到槽位2"), 
+		Item6Current.CurrentSlotID, WithinContainerResult.MovedQuantity));
 	
 	// 打印容器最终状态
 	PrintContainerInfo(InventorySystem, Container1UID, TEXT("Container1"));
@@ -611,6 +620,17 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 	// 打印容器最终状态
 	PrintContainerInfo(InventorySystem, Container1UID, TEXT("Container1"));
 	PrintContainerInfo(InventorySystem, Container2UID, TEXT("Container2"));
+
+	// 最终数据一致性验证
+	UE_LOG(LogGaia, Log, TEXT(">>> 验证数据一致性"));
+	bool bDataIntegrityValid = InventorySystem->ValidateDataIntegrity();
+	if (!bDataIntegrityValid)
+	{
+		LogTestResult(TEXT("数据一致性验证"), false, TEXT("- 移动测试后数据不一致"));
+		return false;
+	}
+	
+	LogTestResult(TEXT("数据一致性验证"), true, TEXT("- 所有移动操作后数据保持一致"));
 
 	UE_LOG(LogGaia, Log, TEXT("=== 移动物品测试完成 ==="));
 	return true;
