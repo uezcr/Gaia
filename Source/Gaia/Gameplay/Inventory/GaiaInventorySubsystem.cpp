@@ -1,6 +1,9 @@
 #include "GaiaInventorySubsystem.h"
 #include "GaiaLogChannels.h"
 #include "DataRegistrySubsystem.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerState.h"
+#include "GaiaInventoryRPCComponent.h"
 
 UGaiaInventorySubsystem::UGaiaInventorySubsystem()
 {
@@ -24,6 +27,8 @@ void UGaiaInventorySubsystem::Deinitialize()
 	// 清理所有物品和容器
 	AllItems.Empty();
 	Containers.Empty();
+	WorldContainerAccessors.Empty();
+	ContainerOwnerMap.Empty();
 	
 	Super::Deinitialize();
 }
@@ -188,6 +193,26 @@ FGuid UGaiaInventorySubsystem::CreateContainer(FName ContainerDefID)
 }
 
 //~END 实例创建
+
+//~BEGIN 调试辅助
+
+void UGaiaInventorySubsystem::SetItemDebugName(const FGuid& ItemUID, const FString& DebugName)
+{
+	if (FGaiaItemInstance* Item = AllItems.Find(ItemUID))
+	{
+		Item->DebugDisplayName = DebugName;
+	}
+}
+
+void UGaiaInventorySubsystem::SetContainerDebugName(const FGuid& ContainerUID, const FString& DebugName)
+{
+	if (FGaiaContainerInstance* Container = Containers.Find(ContainerUID))
+	{
+		Container->DebugDisplayName = DebugName;
+	}
+}
+
+//~END 调试辅助
 
 //~BEGIN 查询功能
 
@@ -425,12 +450,26 @@ bool UGaiaInventorySubsystem::RemoveItemFromContainer(const FGuid& ItemUID)
 		UE_LOG(LogGaia, Error, TEXT("物品所在容器不存在: %s"), *Item->CurrentContainerUID.ToString());
 		return false;
 	}
+
+	UE_LOG(LogGaia, Warning, TEXT("【移除物品】开始: 物品=%s [%s], 容器=%s [%s], 槽位=%d"), 
+		*Item->GetDebugName(), *Item->GetShortUID(),
+		*Container->GetDebugName(), *Container->GetShortUID(), Item->CurrentSlotID);
 	
 	// 清空槽位引用
 	int32 SlotIndex = Container->GetSlotIndexByID(Item->CurrentSlotID);
 	if (SlotIndex != INDEX_NONE)
 	{
+		UE_LOG(LogGaia, Warning, TEXT("【移除物品】清空槽位引用: 容器=%s, 槽位ID=%d, 槽位索引=%d, 原引用=%s"), 
+			*Container->ContainerUID.ToString(), Item->CurrentSlotID, SlotIndex, 
+			*Container->Slots[SlotIndex].ItemInstanceUID.ToString());
+		
 		Container->Slots[SlotIndex].ItemInstanceUID = FGuid();
+		
+		UE_LOG(LogGaia, Warning, TEXT("【移除物品】槽位引用已清空"));
+	}
+	else
+	{
+		UE_LOG(LogGaia, Error, TEXT("【移除物品】无法找到槽位索引: SlotID=%d"), Item->CurrentSlotID);
 	}
 	
 	// 如果物品有容器，清空容器的父容器引用
@@ -465,18 +504,29 @@ bool UGaiaInventorySubsystem::DestroyItem(const FGuid& ItemUID)
 		return false;
 	}
 	
+	UE_LOG(LogGaia, Warning, TEXT("【删除物品】开始: ItemUID=%s"), *ItemUID.ToString());
+	
 	// 从全局池查找物品
 	FGaiaItemInstance* Item = AllItems.Find(ItemUID);
 	if (!Item)
 	{
-		UE_LOG(LogGaia, Warning, TEXT("无法找到要删除的物品: %s"), *ItemUID.ToString());
+		UE_LOG(LogGaia, Warning, TEXT("【删除物品】失败: 物品不存在 - %s"), *ItemUID.ToString());
 		return false;
 	}
+	
+	UE_LOG(LogGaia, Warning, TEXT("【删除物品】物品信息: 容器=%s, 槽位=%d, 数量=%d"), 
+		*Item->CurrentContainerUID.ToString(), Item->CurrentSlotID, Item->Quantity);
 	
 	// 如果物品在容器中，先从容器移除
 	if (Item->IsInContainer())
 	{
+		UE_LOG(LogGaia, Warning, TEXT("【删除物品】调用RemoveItemFromContainer..."));
 		RemoveItemFromContainer(ItemUID);
+		UE_LOG(LogGaia, Warning, TEXT("【删除物品】RemoveItemFromContainer完成"));
+	}
+	else
+	{
+		UE_LOG(LogGaia, Warning, TEXT("【删除物品】物品处于游离状态，无需从容器移除"));
 	}
 	
 	// 如果物品有容器，删除容器及其内容
@@ -497,7 +547,7 @@ bool UGaiaInventorySubsystem::DestroyItem(const FGuid& ItemUID)
 	// 从全局池删除物品
 	AllItems.Remove(ItemUID);
 	
-	UE_LOG(LogGaia, Log, TEXT("完全删除物品: %s"), *ItemUID.ToString());
+	UE_LOG(LogGaia, Warning, TEXT("【删除物品】完成: ItemUID=%s 已从AllItems中移除"), *ItemUID.ToString());
 	return true;
 }
 
@@ -1068,8 +1118,14 @@ FMoveItemResult UGaiaInventorySubsystem::TryStackItems(const FGuid& SourceItemUI
 		// 如果源物品数量为0，删除源物品
 		if (SourceItemPtr->Quantity <= 0)
 		{
-			UE_LOG(LogGaia, Log, TEXT("源物品数量为0，删除源物品"));
+			UE_LOG(LogGaia, Warning, TEXT("【堆叠】源物品数量为0，准备删除: UID=%s, 容器=%s, 槽位=%d"), 
+				*SourceItemUID.ToString(), 
+				*SourceItemPtr->CurrentContainerUID.ToString(), 
+				SourceItemPtr->CurrentSlotID);
+			
 			DestroyItem(SourceItemUID);
+			
+			UE_LOG(LogGaia, Warning, TEXT("【堆叠】源物品已删除: UID=%s"), *SourceItemUID.ToString());
 		}
 		else
 		{
@@ -1375,9 +1431,9 @@ FMoveItemResult UGaiaInventorySubsystem::MoveToEmptySlot(const FGuid& ItemUID, c
 {
 	FMoveItemResult Result;
 	
-	// 获取源物品
-	FGaiaItemInstance SourceItem;
-	if (!FindItemByUID(ItemUID, SourceItem))
+	// 获取源物品指针（直接从AllItems）
+	FGaiaItemInstance* SourceItemPtr = AllItems.Find(ItemUID);
+	if (!SourceItemPtr)
 	{
 		Result.ErrorMessage = TEXT("无法找到源物品");
 		Result.Result = EMoveItemResult::InvalidTarget;
@@ -1387,68 +1443,103 @@ FMoveItemResult UGaiaInventorySubsystem::MoveToEmptySlot(const FGuid& ItemUID, c
 	// 设置移动数量
 	if (Quantity <= 0)
 	{
-		Quantity = SourceItem.Quantity;
+		Quantity = SourceItemPtr->Quantity;
 	}
 	
-	// 如果是部分移动，需要创建新的物品实例
-	bool bIsPartialMove = (Quantity < SourceItem.Quantity);
-	FGaiaItemInstance ItemToMove = SourceItem;
-	ItemToMove.Quantity = Quantity;
-	
-	// 如果是部分移动，生成新的UID
-	if (bIsPartialMove)
+	// 检查数量是否有效
+	if (Quantity > SourceItemPtr->Quantity)
 	{
-		ItemToMove.InstanceUID = FGuid::NewGuid();
-		UE_LOG(LogGaia, Log, TEXT("部分移动，创建新物品实例: 原UID=%s, 新UID=%s, 数量=%d"), 
-			*SourceItem.InstanceUID.ToString(), *ItemToMove.InstanceUID.ToString(), Quantity);
-	}
-	
-	// 检查是否可以添加到目标容器
-	if (!CanAddItemToContainer(ItemToMove, TargetContainerUID))
-	{
-		Result.ErrorMessage = TEXT("无法将物品添加到目标容器");
+		Result.ErrorMessage = TEXT("移动数量超过源物品数量");
 		Result.Result = EMoveItemResult::Failed;
 		return Result;
 	}
 	
-	// 添加到目标容器
-	if (AddItemToContainer(ItemToMove, TargetContainerUID))
+	// 获取目标容器
+	FGaiaContainerInstance* TargetContainer = Containers.Find(TargetContainerUID);
+	if (!TargetContainer)
 	{
-		// 使用新架构：更新源物品数量
-		if (FGaiaItemInstance* SourceItemPtr = AllItems.Find(ItemUID))
+		Result.ErrorMessage = TEXT("目标容器不存在");
+		Result.Result = EMoveItemResult::InvalidTarget;
+		return Result;
+	}
+	
+	// 找到目标槽位
+	int32 TargetSlotIndex = TargetContainer->GetSlotIndexByID(TargetSlotID);
+	if (TargetSlotIndex == INDEX_NONE)
+	{
+		Result.ErrorMessage = TEXT("目标槽位无效");
+		Result.Result = EMoveItemResult::InvalidTarget;
+		return Result;
+	}
+	
+	// 如果是部分移动，创建新物品实例
+	bool bIsPartialMove = (Quantity < SourceItemPtr->Quantity);
+	
+	if (bIsPartialMove)
+	{
+		// 部分移动：创建新物品
+		FGaiaItemInstance NewItem = *SourceItemPtr;
+		NewItem.InstanceUID = FGuid::NewGuid();
+		NewItem.Quantity = Quantity;
+		NewItem.CurrentContainerUID = TargetContainerUID;
+		NewItem.CurrentSlotID = TargetSlotID;
+		
+		// 添加新物品到AllItems
+		AllItems.Add(NewItem.InstanceUID, NewItem);
+		
+		// 更新目标槽位引用
+		TargetContainer->Slots[TargetSlotIndex].ItemInstanceUID = NewItem.InstanceUID;
+		
+		// 减少源物品数量
+		SourceItemPtr->Quantity -= Quantity;
+		
+		// 标记容器需要重新计算
+		if (SourceItemPtr->IsInContainer())
 		{
-			SourceItemPtr->Quantity -= Quantity;
-			
-			// 如果源物品数量为0，删除源物品
-			if (SourceItemPtr->Quantity <= 0)
+			if (FGaiaContainerInstance* SourceContainer = Containers.Find(SourceItemPtr->CurrentContainerUID))
 			{
-				DestroyItem(ItemUID);
-			}
-			else
-			{
-				// 标记源容器需要重新计算
-				if (SourceItemPtr->IsInContainer())
-				{
-					if (FGaiaContainerInstance* SourceContainer = Containers.Find(SourceItemPtr->CurrentContainerUID))
-					{
-						SourceContainer->MarkDirty();
-					}
-				}
+				SourceContainer->MarkDirty();
 			}
 		}
+		TargetContainer->MarkDirty();
 		
-		Result.Result = EMoveItemResult::Success;
-		Result.MovedQuantity = Quantity;
-		Result.RemainingQuantity = 0;
-		Result.TargetContainerUID = TargetContainerUID;
-		
-		UE_LOG(LogGaia, Log, TEXT("成功移动物品到空槽位: %s"), *ItemUID.ToString());
+		UE_LOG(LogGaia, Log, TEXT("部分移动到空槽位: 原UID=%s (剩余%d), 新UID=%s (移动%d)"), 
+			*ItemUID.ToString(), SourceItemPtr->Quantity, *NewItem.InstanceUID.ToString(), Quantity);
 	}
 	else
 	{
-		Result.ErrorMessage = TEXT("添加物品到容器失败");
-		Result.Result = EMoveItemResult::Failed;
+		// 完全移动：直接更新物品位置
+		// 先从源容器移除
+		if (SourceItemPtr->IsInContainer())
+		{
+			FGaiaContainerInstance* SourceContainer = Containers.Find(SourceItemPtr->CurrentContainerUID);
+			if (SourceContainer)
+			{
+				int32 SourceSlotIndex = SourceContainer->GetSlotIndexByID(SourceItemPtr->CurrentSlotID);
+				if (SourceSlotIndex != INDEX_NONE)
+				{
+					SourceContainer->Slots[SourceSlotIndex].ItemInstanceUID = FGuid();
+				}
+				SourceContainer->MarkDirty();
+			}
+		}
+		
+		// 更新物品位置
+		SourceItemPtr->CurrentContainerUID = TargetContainerUID;
+		SourceItemPtr->CurrentSlotID = TargetSlotID;
+		
+		// 更新目标槽位引用
+		TargetContainer->Slots[TargetSlotIndex].ItemInstanceUID = ItemUID;
+		TargetContainer->MarkDirty();
+		
+		UE_LOG(LogGaia, Log, TEXT("完全移动到空槽位: UID=%s, 数量=%d"), 
+			*ItemUID.ToString(), Quantity);
 	}
+	
+	Result.Result = EMoveItemResult::Success;
+	Result.MovedQuantity = Quantity;
+	Result.RemainingQuantity = bIsPartialMove ? (SourceItemPtr->Quantity) : 0;
+	Result.TargetContainerUID = TargetContainerUID;
 	
 	return Result;
 }
@@ -1881,4 +1972,417 @@ void UGaiaInventorySubsystem::RepairDataIntegrity()
 }
 
 //~END 数据验证
+
+//~BEGIN 网络/多人游戏支持
+
+bool UGaiaInventorySubsystem::TryOpenWorldContainer(APlayerController* PlayerController, const FGuid& ContainerUID, FString& OutErrorMessage)
+{
+	if (!PlayerController)
+	{
+		OutErrorMessage = TEXT("无效的玩家控制器");
+		return false;
+	}
+
+	// 检查容器是否存在
+	if (!Containers.Contains(ContainerUID))
+	{
+		OutErrorMessage = TEXT("容器不存在");
+		return false;
+	}
+
+	// 检查玩家是否有权限访问此容器
+	FString PermissionError;
+	if (!CanPlayerAccessContainer(PlayerController, ContainerUID, PermissionError))
+	{
+		OutErrorMessage = PermissionError;
+		UE_LOG(LogGaia, Warning, TEXT("[网络] 玩家 %s 尝试打开容器 %s 失败: %s"),
+			*PlayerController->GetName(), *ContainerUID.ToString(), *PermissionError);
+		return false;
+	}
+
+	// 检查容器是否已被其他玩家打开
+	if (WorldContainerAccessors.Find(ContainerUID))
+	{
+		if (APlayerController* ExistingAccessor = *WorldContainerAccessors.Find(ContainerUID))
+		{
+			if (ExistingAccessor && ExistingAccessor != PlayerController)
+			{
+				// 容器已被其他玩家占用
+				FString OtherPlayerName = (ExistingAccessor)->GetPlayerState<APlayerState>() 
+					? (ExistingAccessor)->GetPlayerState<APlayerState>()->GetPlayerName()
+					: (ExistingAccessor)->GetName();
+			
+				OutErrorMessage = FString::Printf(TEXT("容器正被 %s 使用"), *OtherPlayerName);
+			
+				UE_LOG(LogGaia, Warning, TEXT("[网络] 玩家 %s 尝试打开容器 %s 失败: 已被 %s 占用"),
+					*PlayerController->GetName(), *ContainerUID.ToString(), *OtherPlayerName);
+			
+				return false;
+			}
+		}
+	}
+	// 记录访问者
+	WorldContainerAccessors.Add(ContainerUID, PlayerController);
+	
+	UE_LOG(LogGaia, Log, TEXT("[网络] 玩家 %s 打开世界容器: %s"),
+		*PlayerController->GetName(), *ContainerUID.ToString());
+	
+	return true;
+}
+
+void UGaiaInventorySubsystem::CloseWorldContainer(APlayerController* PlayerController, const FGuid& ContainerUID)
+{
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	// 检查是否是当前访问者
+	if (APlayerController* CurrentAccessor = *WorldContainerAccessors.Find(ContainerUID))
+	{
+		if (CurrentAccessor == PlayerController)
+		{
+			// 移除访问记录
+			WorldContainerAccessors.Remove(ContainerUID);
+			
+			UE_LOG(LogGaia, Log, TEXT("[网络] 玩家 %s 关闭世界容器: %s"),
+				*PlayerController->GetName(), *ContainerUID.ToString());
+		}
+		else
+		{
+			UE_LOG(LogGaia, Warning, TEXT("[网络] 玩家 %s 尝试关闭容器 %s，但当前访问者是其他玩家"),
+				*PlayerController->GetName(), *ContainerUID.ToString());
+		}
+	}
+}
+
+APlayerController* UGaiaInventorySubsystem::GetContainerAccessor(const FGuid& ContainerUID) const
+{
+	if (const TObjectPtr<APlayerController>* Accessor = WorldContainerAccessors.Find(ContainerUID))
+	{
+		return *Accessor;
+	}
+	return nullptr;
+}
+
+bool UGaiaInventorySubsystem::IsContainerOccupied(const FGuid& ContainerUID) const
+{
+	return WorldContainerAccessors.Contains(ContainerUID);
+}
+
+void UGaiaInventorySubsystem::BroadcastContainerUpdate(const FGuid& ContainerUID)
+{
+	// 收集所有需要通知的玩家
+	TSet<APlayerController*> PlayersToNotify;
+	
+	// 1. 添加容器所有者
+	TArray<APlayerController*> Owners = GetContainerOwners(ContainerUID);
+	for (APlayerController* Owner : Owners)
+	{
+		if (Owner)
+		{
+			PlayersToNotify.Add(Owner);
+		}
+	}
+	
+	// 2. 添加正在访问的玩家
+	if (APlayerController* Accessor = GetContainerAccessor(ContainerUID))
+	{
+		PlayersToNotify.Add(Accessor);
+	}
+	
+	// 3. 通知所有相关玩家刷新库存
+	for (APlayerController* PC : PlayersToNotify)
+	{
+		if (!PC) continue;
+		
+		// 查找玩家的 RPC 组件
+		UActorComponent* Component = PC->GetComponentByClass(UGaiaInventoryRPCComponent::StaticClass());
+		if (UGaiaInventoryRPCComponent* RPCComp = Cast<UGaiaInventoryRPCComponent>(Component))
+		{
+			// 通知客户端刷新库存数据
+			// 这会在 ServerRequestRefreshInventory_Implementation 中执行
+			// 因为我们在服务器端，直接调用 Implementation 版本
+			RPCComp->ServerRequestRefreshInventory_Implementation();
+		}
+	}
+	
+	UE_LOG(LogGaia, Verbose, TEXT("[网络广播] 容器 %s 已通知 %d 个玩家"), 
+		*ContainerUID.ToString(), PlayersToNotify.Num());
+}
+
+TArray<APlayerController*> UGaiaInventorySubsystem::GetContainerOwners(const FGuid& ContainerUID) const
+{
+	TArray<APlayerController*> Owners;
+	
+	// 查找容器的所有者
+	if (const TObjectPtr<APlayerController>* Owner = ContainerOwnerMap.Find(ContainerUID))
+	{
+		if (*Owner)
+		{
+			Owners.Add(*Owner);
+		}
+	}
+	
+	return Owners;
+}
+
+void UGaiaInventorySubsystem::RegisterContainerOwner(APlayerController* PlayerController, const FGuid& ContainerUID)
+{
+	if (!PlayerController || !ContainerUID.IsValid())
+	{
+		return;
+	}
+	
+	// 设置容器的所有者
+	ContainerOwnerMap.Add(ContainerUID, PlayerController);
+	
+	// 如果容器当前是World类型，自动升级为Private类型
+	FGaiaContainerInstance* Container = Containers.Find(ContainerUID);
+	if (Container && Container->OwnershipType == EContainerOwnershipType::World)
+	{
+		Container->OwnershipType = EContainerOwnershipType::Private;
+		UE_LOG(LogGaia, Verbose, TEXT("[网络] 容器 %s 已自动设置为Private类型"), 
+			*ContainerUID.ToString());
+	}
+	
+	UE_LOG(LogGaia, Verbose, TEXT("[网络] 注册容器所有者: 玩家=%s, 容器=%s"),
+		*PlayerController->GetName(), *ContainerUID.ToString());
+}
+
+void UGaiaInventorySubsystem::UnregisterContainerOwner(APlayerController* PlayerController, const FGuid& ContainerUID)
+{
+	if (!PlayerController || !ContainerUID.IsValid())
+	{
+		return;
+	}
+	
+	// 检查是否是当前所有者
+	if (const TObjectPtr<APlayerController>* CurrentOwner = ContainerOwnerMap.Find(ContainerUID))
+	{
+		if (*CurrentOwner == PlayerController)
+		{
+			ContainerOwnerMap.Remove(ContainerUID);
+			
+			UE_LOG(LogGaia, Verbose, TEXT("[网络] 注销容器所有者: 玩家=%s, 容器=%s"),
+				*PlayerController->GetName(), *ContainerUID.ToString());
+		}
+	}
+}
+
+// ========================================
+// 权限和所有权管理
+// ========================================
+
+FGuid UGaiaInventorySubsystem::GetPlayerUID(APlayerController* PlayerController)
+{
+	if (!PlayerController)
+	{
+		return FGuid();
+	}
+
+	// 使用PlayerState的UniqueId来获取全局唯一标识
+	if (APlayerState* PlayerState = PlayerController->GetPlayerState<APlayerState>())
+	{
+		// 将UniqueId转换为FGuid
+		// 注意：UniqueNetId可能是不同类型，这里使用ToString后生成一个确定性的GUID
+		FString UniqueIdString = PlayerState->GetUniqueId().ToString();
+		
+		// 生成一个基于字符串的确定性GUID
+		// 这确保同一个玩家总是得到相同的UID
+		uint32 Hash = GetTypeHash(UniqueIdString);
+		return FGuid(Hash, Hash >> 16, Hash >> 8, Hash);
+	}
+
+	// 回退方案：如果没有PlayerState，使用NetPlayerIndex
+	int32 NetIndex = PlayerController->NetPlayerIndex;
+	if (NetIndex >= 0)
+	{
+		return FGuid(NetIndex, 0, 0, 0);
+	}
+
+	// 最后的回退：生成一个随机UID（仅在本地单机模式下）
+	UE_LOG(LogGaia, Warning, TEXT("[权限] 无法为玩家 %s 获取唯一UID，生成临时UID"), 
+		*PlayerController->GetName());
+	return FGuid::NewGuid();
+}
+
+void UGaiaInventorySubsystem::SetContainerOwnershipType(const FGuid& ContainerUID, EContainerOwnershipType OwnershipType)
+{
+	if (FGaiaContainerInstance* Container = Containers.Find(ContainerUID))
+	{
+		Container->OwnershipType = OwnershipType;
+		UE_LOG(LogGaia, Log, TEXT("[所有权] 设置容器 %s 的所有权类型为: %d"), 
+			*ContainerUID.ToString(), static_cast<int32>(OwnershipType));
+	}
+	else
+	{
+		UE_LOG(LogGaia, Error, TEXT("[所有权] 容器 %s 不存在，无法设置所有权类型"), 
+			*ContainerUID.ToString());
+	}
+}
+
+EContainerOwnershipType UGaiaInventorySubsystem::GetContainerOwnershipType(const FGuid& ContainerUID) const
+{
+	if (const FGaiaContainerInstance* Container = Containers.Find(ContainerUID))
+	{
+		return Container->OwnershipType;
+	}
+	
+	UE_LOG(LogGaia, Warning, TEXT("[所有权] 容器 %s 不存在，返回默认类型 World"), 
+		*ContainerUID.ToString());
+	return EContainerOwnershipType::World;
+}
+
+void UGaiaInventorySubsystem::AuthorizePlayerAccess(const FGuid& ContainerUID, APlayerController* PlayerController)
+{
+	if (!PlayerController)
+	{
+		UE_LOG(LogGaia, Error, TEXT("[授权] PlayerController 无效"));
+		return;
+	}
+
+	FGaiaContainerInstance* Container = Containers.Find(ContainerUID);
+	if (!Container)
+	{
+		UE_LOG(LogGaia, Error, TEXT("[授权] 容器 %s 不存在"), *ContainerUID.ToString());
+		return;
+	}
+
+	// 只有 Shared 类型容器才需要授权列表
+	if (Container->OwnershipType != EContainerOwnershipType::Shared)
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[授权] 容器 %s 不是Shared类型，无需授权"), 
+			*ContainerUID.ToString());
+		return;
+	}
+
+	FGuid PlayerUID = GetPlayerUID(PlayerController);
+	Container->AddAuthorizedPlayer(PlayerUID);
+
+	UE_LOG(LogGaia, Log, TEXT("[授权] 玩家 %s (UID: %s) 已被授权访问容器 %s"), 
+		*PlayerController->GetName(), *PlayerUID.ToString(), *ContainerUID.ToString());
+}
+
+void UGaiaInventorySubsystem::RevokePlayerAccess(const FGuid& ContainerUID, APlayerController* PlayerController)
+{
+	if (!PlayerController)
+	{
+		UE_LOG(LogGaia, Error, TEXT("[取消授权] PlayerController 无效"));
+		return;
+	}
+
+	FGaiaContainerInstance* Container = Containers.Find(ContainerUID);
+	if (!Container)
+	{
+		UE_LOG(LogGaia, Error, TEXT("[取消授权] 容器 %s 不存在"), *ContainerUID.ToString());
+		return;
+	}
+
+	FGuid PlayerUID = GetPlayerUID(PlayerController);
+	Container->RemoveAuthorizedPlayer(PlayerUID);
+
+	UE_LOG(LogGaia, Log, TEXT("[取消授权] 玩家 %s (UID: %s) 已被取消访问容器 %s 的授权"), 
+		*PlayerController->GetName(), *PlayerUID.ToString(), *ContainerUID.ToString());
+}
+
+bool UGaiaInventorySubsystem::CanPlayerAccessContainer(APlayerController* PlayerController, const FGuid& ContainerUID, FString& OutErrorMessage) const
+{
+	if (!PlayerController)
+	{
+		OutErrorMessage = TEXT("玩家控制器无效");
+		return false;
+	}
+
+	const FGaiaContainerInstance* Container = Containers.Find(ContainerUID);
+	if (!Container)
+	{
+		OutErrorMessage = FString::Printf(TEXT("容器 %s 不存在"), *ContainerUID.ToString());
+		return false;
+	}
+
+	FGuid PlayerUID = GetPlayerUID(PlayerController);
+
+	// 根据容器类型检查权限
+	switch (Container->OwnershipType)
+	{
+	case EContainerOwnershipType::Private:
+		{
+			// 私有容器：只有所有者可以访问
+			const TObjectPtr<APlayerController>* Owner = ContainerOwnerMap.Find(ContainerUID);
+			if (!Owner || *Owner != PlayerController)
+			{
+				OutErrorMessage = TEXT("这是私有容器，只有所有者可以访问");
+				return false;
+			}
+		}
+		break;
+
+	case EContainerOwnershipType::World:
+		// 世界容器：任何人都可以访问（但受独占访问限制）
+		break;
+
+	case EContainerOwnershipType::Shared:
+		{
+			// 共享容器：所有者或授权玩家可以访问
+			const TObjectPtr<APlayerController>* Owner = ContainerOwnerMap.Find(ContainerUID);
+			bool bIsOwner = Owner && (*Owner == PlayerController);
+			bool bIsAuthorized = Container->IsPlayerAuthorized(PlayerUID);
+
+			if (!bIsOwner && !bIsAuthorized)
+			{
+				OutErrorMessage = TEXT("你没有权限访问此共享容器");
+				return false;
+			}
+		}
+		break;
+
+	case EContainerOwnershipType::Trade:
+		{
+			// 交易容器：需要特殊逻辑（TODO: 实现交易系统时完善）
+			UE_LOG(LogGaia, Warning, TEXT("[权限] 交易容器权限检查暂未实现"));
+		}
+		break;
+	}
+
+	OutErrorMessage = TEXT("");
+	return true;
+}
+
+bool UGaiaInventorySubsystem::CanPlayerAccessItem(APlayerController* PlayerController, const FGuid& ItemUID, FString& OutErrorMessage) const
+{
+	if (!PlayerController)
+	{
+		OutErrorMessage = TEXT("玩家控制器无效");
+		return false;
+	}
+
+	const FGaiaItemInstance* Item = AllItems.Find(ItemUID);
+	if (!Item)
+	{
+		OutErrorMessage = FString::Printf(TEXT("物品 %s 不存在"), *ItemUID.ToString());
+		return false;
+	}
+
+	// 如果物品在容器中，检查容器访问权限
+	if (Item->IsInContainer())
+	{
+		FString ContainerError;
+		if (!CanPlayerAccessContainer(PlayerController, Item->CurrentContainerUID, ContainerError))
+		{
+			OutErrorMessage = FString::Printf(TEXT("无法访问物品所在的容器: %s"), *ContainerError);
+			return false;
+		}
+	}
+	// 如果物品是游离状态（掉落、装备等），这里可以添加额外的检查
+	else
+	{
+		// TODO: 添加游离物品的权限检查（例如：检查物品是否在玩家附近）
+	}
+
+	OutErrorMessage = TEXT("");
+	return true;
+}
+
+//~END 网络/多人游戏支持
 

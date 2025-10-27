@@ -79,6 +79,141 @@ public:
 	
 	//~END 实例创建
 
+	//~BEGIN 调试辅助
+	
+	/** 设置物品的调试显示名称 */
+	UE_API void SetItemDebugName(const FGuid& ItemUID, const FString& DebugName);
+	
+	/** 设置容器的调试显示名称 */
+	UE_API void SetContainerDebugName(const FGuid& ContainerUID, const FString& DebugName);
+	
+	//~END 调试辅助
+
+	//~BEGIN 网络/多人游戏支持
+	
+	/**
+	 * 尝试让玩家打开世界容器
+	 * @param PlayerController 玩家控制器
+	 * @param ContainerUID 容器UID
+	 * @param OutErrorMessage 失败时的错误消息
+	 * @return 是否成功打开
+	 */
+	UE_API bool TryOpenWorldContainer(APlayerController* PlayerController, const FGuid& ContainerUID, FString& OutErrorMessage);
+	
+	/**
+	 * 玩家关闭世界容器
+	 * @param PlayerController 玩家控制器
+	 * @param ContainerUID 容器UID
+	 */
+	UE_API void CloseWorldContainer(APlayerController* PlayerController, const FGuid& ContainerUID);
+	
+	/**
+	 * 获取正在访问指定容器的玩家
+	 * @param ContainerUID 容器UID
+	 * @return 玩家控制器，如果无人访问则返回nullptr
+	 */
+	UE_API APlayerController* GetContainerAccessor(const FGuid& ContainerUID) const;
+	
+	/**
+	 * 检查容器是否被占用
+	 * @param ContainerUID 容器UID
+	 * @return 是否有玩家正在访问
+	 */
+	UE_API bool IsContainerOccupied(const FGuid& ContainerUID) const;
+	
+	/**
+	 * 广播容器更新给所有相关玩家
+	 * 自动找到所有拥有或正在访问该容器的玩家，并通知他们刷新数据
+	 * @param ContainerUID 发生变化的容器UID
+	 */
+	UE_API void BroadcastContainerUpdate(const FGuid& ContainerUID);
+	
+	/**
+	 * 获取所有拥有指定容器的玩家
+	 * @param ContainerUID 容器UID
+	 * @return 拥有该容器的玩家列表
+	 */
+	UE_API TArray<APlayerController*> GetContainerOwners(const FGuid& ContainerUID) const;
+	
+	/**
+	 * 注册容器所有者（用于玩家背包等私有容器）
+	 * @param PlayerController 玩家控制器
+	 * @param ContainerUID 容器UID
+	 */
+	UE_API void RegisterContainerOwner(APlayerController* PlayerController, const FGuid& ContainerUID);
+	
+	/**
+	 * 注销容器所有者
+	 * @param PlayerController 玩家控制器
+	 * @param ContainerUID 容器UID
+	 */
+	UE_API void UnregisterContainerOwner(APlayerController* PlayerController, const FGuid& ContainerUID);
+
+	// ========================================
+	// 权限和所有权管理
+	// ========================================
+
+	/**
+	 * 获取玩家的唯一UID
+	 * @param PlayerController 玩家控制器
+	 * @return 玩家的唯一标识符（从PlayerState获取）
+	 */
+	UE_API static FGuid GetPlayerUID(APlayerController* PlayerController);
+
+	/**
+	 * 设置容器的所有权类型
+	 * @param ContainerUID 容器UID
+	 * @param OwnershipType 所有权类型
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory|Ownership")
+	UE_API void SetContainerOwnershipType(const FGuid& ContainerUID, EContainerOwnershipType OwnershipType);
+
+	/**
+	 * 获取容器的所有权类型
+	 * @param ContainerUID 容器UID
+	 * @return 所有权类型
+	 */
+	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory|Ownership")
+	UE_API EContainerOwnershipType GetContainerOwnershipType(const FGuid& ContainerUID) const;
+
+	/**
+	 * 授权玩家访问共享容器
+	 * @param ContainerUID 容器UID
+	 * @param PlayerController 要授权的玩家
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory|Ownership")
+	UE_API void AuthorizePlayerAccess(const FGuid& ContainerUID, APlayerController* PlayerController);
+
+	/**
+	 * 取消玩家访问共享容器的授权
+	 * @param ContainerUID 容器UID
+	 * @param PlayerController 要取消授权的玩家
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory|Ownership")
+	UE_API void RevokePlayerAccess(const FGuid& ContainerUID, APlayerController* PlayerController);
+
+	/**
+	 * 检查玩家是否可以访问指定容器
+	 * @param PlayerController 玩家控制器
+	 * @param ContainerUID 容器UID
+	 * @param OutErrorMessage 如果无法访问，返回错误消息
+	 * @return 是否可以访问
+	 */
+	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory|Ownership")
+	UE_API bool CanPlayerAccessContainer(APlayerController* PlayerController, const FGuid& ContainerUID, FString& OutErrorMessage) const;
+
+	/**
+	 * 检查玩家是否可以操作指定物品
+	 * @param PlayerController 玩家控制器
+	 * @param ItemUID 物品UID
+	 * @param OutErrorMessage 如果无法操作，返回错误消息
+	 * @return 是否可以操作
+	 */
+	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory|Ownership")
+	UE_API bool CanPlayerAccessItem(APlayerController* PlayerController, const FGuid& ItemUID, FString& OutErrorMessage) const;
+	
+	//~END 网络/多人游戏支持
+
 	//~BEGIN 查询功能
 	
 	/** 通过UID查找物品实例 */
@@ -194,6 +329,14 @@ private:
 	/** 所有容器实例的映射表（FGuid -> 容器实例） */
 	UPROPERTY()
 	TMap<FGuid, FGaiaContainerInstance> Containers;
+	
+	/** 世界容器访问者映射（容器UID -> 正在访问的玩家）- 一个容器同时只能有一个玩家打开 */
+	UPROPERTY()
+	TMap<FGuid, TObjectPtr<APlayerController>> WorldContainerAccessors;
+	
+	/** 容器所有者映射（容器UID -> 所有者玩家）- 用于玩家背包等私有容器 */
+	UPROPERTY()
+	TMap<FGuid, TObjectPtr<APlayerController>> ContainerOwnerMap;
 	
 	//~BEGIN 移动辅助函数
 	

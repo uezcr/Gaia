@@ -4,6 +4,46 @@
 #include "Engine/DataTable.h"
 #include "GaiaInventoryTypes.generated.h"
 
+// ========================================
+// 网络同步事件委托
+// ========================================
+
+/** 库存数据更新事件 */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnInventoryUpdated);
+
+/** 库存操作失败事件 */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnInventoryOperationFailed, int32, ErrorCode, const FString&, ErrorMessage);
+
+/** 容器打开事件 */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnContainerOpened, const FGuid&, ContainerUID);
+
+/** 容器关闭事件 */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnContainerClosed, const FGuid&, ContainerUID);
+
+// ========================================
+// 枚举定义
+// ========================================
+
+/**
+ * 容器所有权类型
+ * 定义容器的访问控制模式
+ */
+UENUM(BlueprintType)
+enum class EContainerOwnershipType : uint8
+{
+	/** 私有容器 - 只有所有者可以访问（玩家背包、装备栏） */
+	Private UMETA(DisplayName = "Private"),
+	
+	/** 世界容器 - 任何人都可以访问，但同时只能一人打开（野外箱子、宝箱） */
+	World UMETA(DisplayName = "World"),
+	
+	/** 共享容器 - 有所有者，可以授权其他人访问（房屋箱子、公会仓库） */
+	Shared UMETA(DisplayName = "Shared"),
+	
+	/** 交易容器 - 临时容器，用于玩家间交易 */
+	Trade UMETA(DisplayName = "Trade")
+};
+
 /**
  * 移动物品操作的结果类型
  */
@@ -297,6 +337,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Item Location")
 	int32 CurrentSlotID = -1;
 
+	/** 调试显示名称（用于日志输出） */
+	UPROPERTY(BlueprintReadWrite, Category = "Debug")
+	FString DebugDisplayName;
+
 public:
 	FGaiaItemInstance()
 		: InstanceUID()
@@ -305,6 +349,7 @@ public:
 		, OwnedContainerUID()
 		, CurrentContainerUID()
 		, CurrentSlotID(-1)
+		, DebugDisplayName(TEXT(""))
 	{
 	}
 
@@ -330,6 +375,22 @@ public:
 	bool IsOrphan() const
 	{
 		return !CurrentContainerUID.IsValid();
+	}
+
+	/** 获取简短的调试名称 */
+	FString GetDebugName() const
+	{
+		if (!DebugDisplayName.IsEmpty())
+		{
+			return FString::Printf(TEXT("%s(x%d)"), *DebugDisplayName, Quantity);
+		}
+		return FString::Printf(TEXT("%s(x%d)"), *ItemDefinitionID.ToString(), Quantity);
+	}
+
+	/** 获取简短的UID（前8位） */
+	FString GetShortUID() const
+	{
+		return InstanceUID.ToString().Left(8);
 	}
 };
 
@@ -376,6 +437,22 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Container Instance")
 	bool bNeedRecalculate = true;
 
+	/** 调试显示名称（用于日志输出） */
+	UPROPERTY(BlueprintReadWrite, Category = "Debug")
+	FString DebugDisplayName;
+
+	// ========================================
+	// 所有权和权限控制
+	// ========================================
+
+	/** 容器所有权类型 */
+	UPROPERTY(BlueprintReadWrite, Category = "Ownership")
+	EContainerOwnershipType OwnershipType = EContainerOwnershipType::World;
+
+	/** 授权访问的玩家UID列表（仅用于Shared类型容器） */
+	UPROPERTY(BlueprintReadWrite, Category = "Ownership")
+	TArray<FGuid> AuthorizedPlayerUIDs;
+
 public:
 	FGaiaContainerInstance()
 		: ContainerUID()
@@ -385,6 +462,8 @@ public:
 		, CachedTotalWeight(0)
 		, CachedTotalVolume(0)
 		, bNeedRecalculate(true)
+		, DebugDisplayName(TEXT(""))
+		, OwnershipType(EContainerOwnershipType::World)
 	{
 	}
 
@@ -432,5 +511,48 @@ public:
 			}
 		}
 		return Count;
+	}
+
+	/** 获取简短的调试名称 */
+	FString GetDebugName() const
+	{
+		if (!DebugDisplayName.IsEmpty())
+		{
+			return DebugDisplayName;
+		}
+		return ContainerDefinitionID.ToString();
+	}
+
+	/** 获取简短的UID（前8位） */
+	FString GetShortUID() const
+	{
+		return ContainerUID.ToString().Left(8);
+	}
+
+	/** 检查玩家UID是否在授权列表中 */
+	bool IsPlayerAuthorized(const FGuid& PlayerUID) const
+	{
+		return AuthorizedPlayerUIDs.Contains(PlayerUID);
+	}
+
+	/** 添加授权玩家 */
+	void AddAuthorizedPlayer(const FGuid& PlayerUID)
+	{
+		if (!AuthorizedPlayerUIDs.Contains(PlayerUID))
+		{
+			AuthorizedPlayerUIDs.Add(PlayerUID);
+		}
+	}
+
+	/** 移除授权玩家 */
+	void RemoveAuthorizedPlayer(const FGuid& PlayerUID)
+	{
+		AuthorizedPlayerUIDs.Remove(PlayerUID);
+	}
+
+	/** 清空所有授权 */
+	void ClearAuthorizedPlayers()
+	{
+		AuthorizedPlayerUIDs.Empty();
 	}
 };
