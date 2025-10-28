@@ -49,7 +49,7 @@ public:
 	static bool TestAddAndFindItem(const UObject* WorldContextObject);
 
 	/**
-	 * 测试物品删除和索引重建（旧架构，已废弃）
+	 * 测试物品删除和索引重建
 	 * @param WorldContextObject 世界上下文对象
 	 * @return 测试是否通过
 	 */

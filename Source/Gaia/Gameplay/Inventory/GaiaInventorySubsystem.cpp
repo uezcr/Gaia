@@ -399,8 +399,6 @@ bool UGaiaInventorySubsystem::AddItemToContainer(const FGaiaItemInstance& Item, 
 		}
 	}
 	
-	// TODO: 检查堆叠逻辑（如果物品可堆叠，尝试合并到现有堆）
-	
 	// 找到空槽位
 	int32 EmptySlotID = Container->FindEmptySlotID();
 	if (EmptySlotID == INDEX_NONE)
@@ -1488,45 +1486,24 @@ bool UGaiaInventorySubsystem::CanSwapItems(const FGuid& ItemUID1, const FGuid& I
 	
 	if (!Item1 || !Item2)
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[交换检查] 无法找到物品: Item1=%d, Item2=%d"), 
-			Item1 != nullptr, Item2 != nullptr);
 		return false;
 	}
-	
-	UE_LOG(LogGaia, Warning, TEXT("[交换检查] Item1: %s (容器: %s, 槽位: %d, HasContainer: %d)"),
-		*Item1->ItemDefinitionID.ToString(),
-		*Item1->CurrentContainerUID.ToString(),
-		Item1->CurrentSlotID,
-		Item1->HasContainer());
-	
-	UE_LOG(LogGaia, Warning, TEXT("[交换检查] Item2: %s (容器: %s, 槽位: %d, HasContainer: %d)"),
-		*Item2->ItemDefinitionID.ToString(),
-		*Item2->CurrentContainerUID.ToString(),
-		Item2->CurrentSlotID,
-		Item2->HasContainer());
 	
 	// 检查是否都在容器中
 	if (!Item1->IsInContainer() || !Item2->IsInContainer())
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[交换检查] ❌ 物品不在容器中"));
 		return false;
 	}
 	
 	// 如果在同一个容器中，直接允许交换（同容器内交换不会造成循环）
 	if (Item1->CurrentContainerUID == Item2->CurrentContainerUID)
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[交换检查] ✅ 同容器内交换，允许"));
 		return true;
 	}
 	
 	// 跨容器交换，需要检查是否可以添加到对方的容器
-	UE_LOG(LogGaia, Warning, TEXT("[交换检查] 跨容器交换，检查是否可以互相添加..."));
-	
 	bool bCanAdd1To2 = CanAddItemToContainer(*Item1, Item2->CurrentContainerUID);
 	bool bCanAdd2To1 = CanAddItemToContainer(*Item2, Item1->CurrentContainerUID);
-	
-	UE_LOG(LogGaia, Warning, TEXT("[交换检查] Item1 -> Item2容器: %d, Item2 -> Item1容器: %d"),
-		bCanAdd1To2, bCanAdd2To1);
 	
 	return bCanAdd1To2 && bCanAdd2To1;
 }
@@ -1695,13 +1672,9 @@ FMoveItemResult UGaiaInventorySubsystem::MoveItemWithinContainer(const FGuid& It
 	
 	FGaiaSlotInfo& TargetSlot = Container->Slots[TargetSlotIndex];
 	
-	UE_LOG(LogGaia, Warning, TEXT("[容器内移动] 目标槽位%d: IsEmpty=%d, ItemUID=%s"),
-		TargetSlotID, TargetSlot.IsEmpty(), *TargetSlot.ItemInstanceUID.ToString());
-	
 	if (TargetSlot.IsEmpty())
 	{
 		// 目标槽位为空，直接移动
-		UE_LOG(LogGaia, Warning, TEXT("[容器内移动] ✅ 目标槽位为空，执行移动"));
 		// 设置移动数量
 		if (Quantity <= 0 || Quantity > SourceItemPtr->Quantity)
 		{
@@ -1761,13 +1734,9 @@ FMoveItemResult UGaiaInventorySubsystem::MoveItemWithinContainer(const FGuid& It
 	}
 	
 	// 目标槽位有物品，需要处理
-	UE_LOG(LogGaia, Warning, TEXT("[容器内移动] 目标槽位有物品，查找目标物品: %s"),
-		*TargetSlot.ItemInstanceUID.ToString());
-	
 	FGaiaItemInstance TargetItem;
 	if (FindItemByUID(TargetSlot.ItemInstanceUID, TargetItem))
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[容器内移动] → 找到目标物品，调用 ProcessTargetSlotWithItem"));
 		return ProcessTargetSlotWithItem(ItemUID, TargetItem, SourceItemPtr->CurrentContainerUID, TargetSlotID, Quantity);
 	}
 	
@@ -1784,37 +1753,16 @@ FMoveItemResult UGaiaInventorySubsystem::ProcessTargetSlotWithItem(const FGuid& 
 {
 	FMoveItemResult Result;
 	
-	UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] 源物品: %s, 目标物品: %s (HasContainer: %d)"),
-		*ItemUID.ToString(),
-		*TargetItem.ItemDefinitionID.ToString(),
-		TargetItem.HasContainer());
-	
 	// 获取源物品
 	FGaiaItemInstance SourceItem;
 	if (!FindItemByUID(ItemUID, SourceItem))
 	{
 		Result.ErrorMessage = TEXT("无法找到源物品");
 		Result.Result = EMoveItemResult::InvalidTarget;
-		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ❌ 无法找到源物品"));
 		return Result;
 	}
 	
-	UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] 源物品: %s (HasContainer: %d)"),
-		*SourceItem.ItemDefinitionID.ToString(),
-		SourceItem.HasContainer());
-	
 	// 检查是否为相同类型（尝试堆叠）
-	if (SourceItem.ItemDefinitionID == TargetItem.ItemDefinitionID)
-	{
-		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] → 尝试堆叠"));
-	}
-	else
-	{
-		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] 类型不同: 源=%s, 目标=%s"),
-			*SourceItem.ItemDefinitionID.ToString(),
-			*TargetItem.ItemDefinitionID.ToString());
-	}
-	
 	if (SourceItem.ItemDefinitionID == TargetItem.ItemDefinitionID)
 	{
 		return TryStackItems(ItemUID, TargetItem.InstanceUID, Quantity);
@@ -1823,25 +1771,20 @@ FMoveItemResult UGaiaInventorySubsystem::ProcessTargetSlotWithItem(const FGuid& 
 	// 检查目标物品是否有容器（尝试放入容器）
 	if (TargetItem.HasContainer())
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] → 目标物品有容器，尝试放入"));
 		FMoveItemResult ContainerResult = TryMoveToContainer(ItemUID, TargetItem.InstanceUID, Quantity);
 		if (ContainerResult.Result == EMoveItemResult::Success)
 		{
-			UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ✅ 成功放入目标容器"));
 			return ContainerResult;
 		}
 		// 如果放入容器失败，不交换位置，直接返回失败
-		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ❌ 无法放入目标容器"));
 		Result.ErrorMessage = TEXT("无法放入目标物品的容器");
 		Result.Result = EMoveItemResult::ContainerRejected;
 		return Result;
 	}
 	
 	// 尝试交换位置
-	UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] → 尝试交换位置"));
 	if (CanSwapItems(ItemUID, TargetItem.InstanceUID))
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ✅ 可以交换，执行交换"));
 		return SwapItems(ItemUID, TargetItem.InstanceUID);
 	}
 	
@@ -2254,21 +2197,14 @@ void UGaiaInventorySubsystem::BroadcastContainerUpdate(const FGuid& ContainerUID
 	}
 	
 	// 3. 通知所有相关玩家刷新库存
-	UE_LOG(LogGaia, Warning, TEXT("[网络广播] ⭐ 容器 %s 开始通知 %d 个玩家"), 
-		*ContainerUID.ToString(), PlayersToNotify.Num());
-	
 	for (APlayerController* PC : PlayersToNotify)
 	{
 		if (!PC) continue;
-		
-		UE_LOG(LogGaia, Warning, TEXT("[网络广播] 尝试通知玩家: %s"), *PC->GetName());
 		
 		// 查找玩家的 RPC 组件
 		UActorComponent* Component = PC->GetComponentByClass(UGaiaInventoryRPCComponent::StaticClass());
 		if (UGaiaInventoryRPCComponent* RPCComp = Cast<UGaiaInventoryRPCComponent>(Component))
 		{
-			UE_LOG(LogGaia, Warning, TEXT("[网络广播] ✅ 找到RPC组件，调用刷新: %p"), RPCComp);
-			
 			// 通知客户端刷新库存数据
 			// 这会在 ServerRequestRefreshInventory_Implementation 中执行
 			// 因为我们在服务器端，直接调用 Implementation 版本
@@ -2276,7 +2212,7 @@ void UGaiaInventorySubsystem::BroadcastContainerUpdate(const FGuid& ContainerUID
 		}
 		else
 		{
-			UE_LOG(LogGaia, Error, TEXT("[网络广播] ❌ 未找到RPC组件"));
+			UE_LOG(LogGaia, Error, TEXT("未找到玩家的RPC组件: %s"), *PC->GetName());
 		}
 	}
 }

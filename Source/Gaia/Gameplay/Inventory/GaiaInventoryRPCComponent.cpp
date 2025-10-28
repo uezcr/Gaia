@@ -559,8 +559,7 @@ void UGaiaInventoryRPCComponent::ClientReceiveInventoryDelta_Implementation(
 void UGaiaInventoryRPCComponent::ClientOperationSuccess_Implementation(const FString& Message)
 {
 	UE_LOG(LogGaia, Log, TEXT("[网络] 操作成功: %s"), *Message);
-	
-	// TODO: 显示成功提示
+	// UI 提示应在 UI 层通过监听 OnInventoryUpdated 事件处理
 }
 
 void UGaiaInventoryRPCComponent::ClientOperationFailed_Implementation(int32 ErrorCode, const FString& ErrorMessage)
