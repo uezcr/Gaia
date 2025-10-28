@@ -130,13 +130,24 @@ FGaiaItemInstance UGaiaInventorySubsystem::CreateItemInstance(FName ItemDefID, i
 	NewItem.ItemDefinitionID = ItemDefID;
 	
 	// 设置数量（考虑堆叠规则）
-	if (ItemDef.bStackable)
+	// 注意：使用 IsStackable() 而不是 bStackable，因为带容器的物品强制不可堆叠
+	if (ItemDef.IsStackable())
 	{
 		NewItem.Quantity = FMath::Clamp(Quantity, 1, ItemDef.MaxStackSize);
 	}
 	else
 	{
+		// 不可堆叠的物品，强制数量为1
 		NewItem.Quantity = 1;
+		
+		// 如果用户请求创建多个不可堆叠物品，给出警告
+		if (Quantity > 1)
+		{
+			UE_LOG(LogGaia, Warning, TEXT("创建物品: %s 不可堆叠（%s），数量从 %d 调整为 1"),
+				*ItemDefID.ToString(),
+				ItemDef.bHasContainer ? TEXT("带容器") : TEXT("定义设置"),
+				Quantity);
+		}
 	}
 	
 	// 如果物品有容器，创建容器实例
@@ -190,6 +201,22 @@ FGuid UGaiaInventorySubsystem::CreateContainer(FName ContainerDefID)
 		*ContainerDefID.ToString(), *NewContainer.ContainerUID.ToString(), ContainerDef.SlotCount);
 	
 	return NewContainer.ContainerUID;
+}
+
+FGuid UGaiaInventorySubsystem::CreateContainerForPlayer(FName ContainerDefID, APlayerController* OwnerPlayerController)
+{
+	// 先创建容器
+	FGuid ContainerUID = CreateContainer(ContainerDefID);
+	
+	// 如果创建成功且提供了所有者，注册所有者
+	if (ContainerUID.IsValid() && OwnerPlayerController)
+	{
+		RegisterContainerOwner(OwnerPlayerController, ContainerUID);
+		UE_LOG(LogGaia, Log, TEXT("容器 %s 已自动注册所有者: %s"), 
+			*ContainerUID.ToString(), *OwnerPlayerController->GetName());
+	}
+	
+	return ContainerUID;
 }
 
 //~END 实例创建
@@ -1059,12 +1086,31 @@ FMoveItemResult UGaiaInventorySubsystem::TryStackItems(const FGuid& SourceItemUI
 		return Result;
 	}
 	
-	// 检查是否可堆叠
-	if (!ItemDef.bStackable)
+	// 检查物品定义是否允许堆叠（包含容器定义检查）
+	if (!ItemDef.IsStackable())
 	{
-		Result.ErrorMessage = TEXT("物品不可堆叠");
+		if (ItemDef.bHasContainer)
+		{
+			Result.ErrorMessage = TEXT("带容器的物品不可堆叠");
+			UE_LOG(LogGaia, Warning, TEXT("堆叠失败: 物品定义声明了容器功能，不可堆叠 - %s"), *SourceItem.ItemDefinitionID.ToString());
+		}
+		else
+		{
+			Result.ErrorMessage = TEXT("物品不可堆叠");
+			UE_LOG(LogGaia, Warning, TEXT("堆叠失败: 物品定义设置为不可堆叠 - %s"), *SourceItem.ItemDefinitionID.ToString());
+		}
 		Result.Result = EMoveItemResult::StackLimitReached;
-		UE_LOG(LogGaia, Warning, TEXT("堆叠失败: 物品不可堆叠 - %s"), *SourceItem.ItemDefinitionID.ToString());
+		return Result;
+	}
+	
+	// 检查物品实例是否包含容器（运行时检查）
+	// 即使定义允许堆叠，如果实例关联了容器，也不允许堆叠
+	if (SourceItem.HasContainer() || TargetItem.HasContainer())
+	{
+		Result.ErrorMessage = TEXT("带容器的物品实例不可堆叠");
+		Result.Result = EMoveItemResult::StackLimitReached;
+		UE_LOG(LogGaia, Warning, TEXT("堆叠失败: 物品实例包含容器，不可堆叠 - 源HasContainer: %d, 目标HasContainer: %d"), 
+			SourceItem.HasContainer(), TargetItem.HasContainer());
 		return Result;
 	}
 	
@@ -1240,42 +1286,72 @@ FMoveItemResult UGaiaInventorySubsystem::TryMoveToContainer(const FGuid& ItemUID
 	
 	UE_LOG(LogGaia, Log, TEXT("容器检查通过，开始执行移动"));
 	
-	// 执行移动
-	UE_LOG(LogGaia, Log, TEXT("调用AddItemToContainer添加物品到容器"));
-	if (AddItemToContainer(TestItem, ContainerItem.OwnedContainerUID))
+	// ⭐ 关键修复：先从源容器移除槽位引用，但不删除物品
+	FGuid SourceContainerUID = ItemToMove.CurrentContainerUID;
+	int32 SourceSlotID = ItemToMove.CurrentSlotID;
+	
+	if (ItemToMove.IsInContainer())
 	{
-		UE_LOG(LogGaia, Log, TEXT("AddItemToContainer成功，开始更新源物品数量"));
+		UE_LOG(LogGaia, Warning, TEXT("【放入容器】清空源容器槽位引用: 容器=%s, 槽位=%d"),
+			*SourceContainerUID.ToString(), SourceSlotID);
 		
-		// 使用新架构：直接从AllItems获取源物品
-		if (FGaiaItemInstance* SourceItemPtr = AllItems.Find(ItemUID))
+		// 清空源容器的槽位引用
+		if (FGaiaContainerInstance* SourceContainer = Containers.Find(SourceContainerUID))
 		{
-			int32 OldQuantity = SourceItemPtr->Quantity;
-			SourceItemPtr->Quantity -= Quantity;
-			
-			UE_LOG(LogGaia, Log, TEXT("更新源物品数量: %d -> %d"), 
-				OldQuantity, SourceItemPtr->Quantity);
-			
-			// 如果源物品数量为0，删除源物品
-			if (SourceItemPtr->Quantity <= 0)
+			int32 SlotIndex = SourceContainer->GetSlotIndexByID(SourceSlotID);
+			if (SlotIndex != INDEX_NONE)
 			{
-				UE_LOG(LogGaia, Log, TEXT("源物品数量为0，删除源物品"));
-				DestroyItem(ItemUID);
-			}
-			else
-			{
-				// 标记源容器需要重新计算
-				if (SourceItemPtr->IsInContainer())
-				{
-					if (FGaiaContainerInstance* SourceContainer = Containers.Find(SourceItemPtr->CurrentContainerUID))
-					{
-						SourceContainer->MarkDirty();
-					}
-				}
+				SourceContainer->Slots[SlotIndex].ItemInstanceUID = FGuid();
+				SourceContainer->MarkDirty();
+				UE_LOG(LogGaia, Warning, TEXT("【放入容器】源槽位引用已清空"));
 			}
 		}
-		else
+	}
+	
+	// 查找目标容器的空槽位
+	FGaiaContainerInstance* TargetContainer = Containers.Find(ContainerItem.OwnedContainerUID);
+	if (!TargetContainer)
+	{
+		Result.ErrorMessage = TEXT("目标容器不存在");
+		Result.Result = EMoveItemResult::InvalidTarget;
+		return Result;
+	}
+	
+	int32 EmptySlotID = TargetContainer->FindEmptySlotID();
+	if (EmptySlotID == INDEX_NONE)
+	{
+		Result.ErrorMessage = TEXT("目标容器没有空槽位");
+		Result.Result = EMoveItemResult::ContainerRejected;
+		return Result;
+	}
+	
+	// ⭐ 直接修改现有物品的位置信息（不创建新物品）
+	if (FGaiaItemInstance* ItemPtr = AllItems.Find(ItemUID))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("【放入容器】更新物品位置: %s -> 容器 %s 槽位 %d"),
+			*ItemUID.ToString(), *ContainerItem.OwnedContainerUID.ToString(), EmptySlotID);
+		
+		// 更新物品位置
+		ItemPtr->CurrentContainerUID = ContainerItem.OwnedContainerUID;
+		ItemPtr->CurrentSlotID = EmptySlotID;
+		
+		// 更新目标容器的槽位引用
+		int32 TargetSlotIndex = TargetContainer->GetSlotIndexByID(EmptySlotID);
+		if (TargetSlotIndex != INDEX_NONE)
 		{
-			UE_LOG(LogGaia, Error, TEXT("放入容器失败: 无法找到源物品 - %s"), *ItemUID.ToString());
+			TargetContainer->Slots[TargetSlotIndex].ItemInstanceUID = ItemUID;
+			TargetContainer->MarkDirty();
+		}
+		
+		// 如果物品有容器，更新容器的父容器引用
+		if (ItemPtr->HasContainer())
+		{
+			if (FGaiaContainerInstance* ItemContainer = Containers.Find(ItemPtr->OwnedContainerUID))
+			{
+				ItemContainer->ParentContainerUID = ContainerItem.OwnedContainerUID;
+				UE_LOG(LogGaia, Log, TEXT("更新物品容器的父容器: %s -> %s"),
+					*ItemPtr->OwnedContainerUID.ToString(), *ContainerItem.OwnedContainerUID.ToString());
+			}
 		}
 		
 		Result.Result = EMoveItemResult::Success;
@@ -1288,10 +1364,9 @@ FMoveItemResult UGaiaInventorySubsystem::TryMoveToContainer(const FGuid& ItemUID
 	}
 	else
 	{
-		Result.ErrorMessage = TEXT("添加物品到容器失败");
-		Result.Result = EMoveItemResult::ContainerRejected;
-		UE_LOG(LogGaia, Warning, TEXT("放入容器失败: AddItemToContainer返回false - 物品: %s, 容器: %s"), 
-			*ItemToMove.ItemDefinitionID.ToString(), *ContainerItem.OwnedContainerUID.ToString());
+		Result.ErrorMessage = TEXT("无法找到源物品");
+		Result.Result = EMoveItemResult::InvalidTarget;
+		UE_LOG(LogGaia, Error, TEXT("放入容器失败: 无法找到源物品 - %s"), *ItemUID.ToString());
 	}
 	
 	return Result;
@@ -1413,18 +1488,47 @@ bool UGaiaInventorySubsystem::CanSwapItems(const FGuid& ItemUID1, const FGuid& I
 	
 	if (!Item1 || !Item2)
 	{
+		UE_LOG(LogGaia, Warning, TEXT("[交换检查] 无法找到物品: Item1=%d, Item2=%d"), 
+			Item1 != nullptr, Item2 != nullptr);
 		return false;
 	}
+	
+	UE_LOG(LogGaia, Warning, TEXT("[交换检查] Item1: %s (容器: %s, 槽位: %d, HasContainer: %d)"),
+		*Item1->ItemDefinitionID.ToString(),
+		*Item1->CurrentContainerUID.ToString(),
+		Item1->CurrentSlotID,
+		Item1->HasContainer());
+	
+	UE_LOG(LogGaia, Warning, TEXT("[交换检查] Item2: %s (容器: %s, 槽位: %d, HasContainer: %d)"),
+		*Item2->ItemDefinitionID.ToString(),
+		*Item2->CurrentContainerUID.ToString(),
+		Item2->CurrentSlotID,
+		Item2->HasContainer());
 	
 	// 检查是否都在容器中
 	if (!Item1->IsInContainer() || !Item2->IsInContainer())
 	{
+		UE_LOG(LogGaia, Warning, TEXT("[交换检查] ❌ 物品不在容器中"));
 		return false;
 	}
 	
-	// 检查是否可以添加到对方的容器
-	return CanAddItemToContainer(*Item1, Item2->CurrentContainerUID) && 
-		   CanAddItemToContainer(*Item2, Item1->CurrentContainerUID);
+	// 如果在同一个容器中，直接允许交换（同容器内交换不会造成循环）
+	if (Item1->CurrentContainerUID == Item2->CurrentContainerUID)
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[交换检查] ✅ 同容器内交换，允许"));
+		return true;
+	}
+	
+	// 跨容器交换，需要检查是否可以添加到对方的容器
+	UE_LOG(LogGaia, Warning, TEXT("[交换检查] 跨容器交换，检查是否可以互相添加..."));
+	
+	bool bCanAdd1To2 = CanAddItemToContainer(*Item1, Item2->CurrentContainerUID);
+	bool bCanAdd2To1 = CanAddItemToContainer(*Item2, Item1->CurrentContainerUID);
+	
+	UE_LOG(LogGaia, Warning, TEXT("[交换检查] Item1 -> Item2容器: %d, Item2 -> Item1容器: %d"),
+		bCanAdd1To2, bCanAdd2To1);
+	
+	return bCanAdd1To2 && bCanAdd2To1;
 }
 
 FMoveItemResult UGaiaInventorySubsystem::MoveToEmptySlot(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 TargetSlotID, int32 Quantity)
@@ -1591,9 +1695,13 @@ FMoveItemResult UGaiaInventorySubsystem::MoveItemWithinContainer(const FGuid& It
 	
 	FGaiaSlotInfo& TargetSlot = Container->Slots[TargetSlotIndex];
 	
+	UE_LOG(LogGaia, Warning, TEXT("[容器内移动] 目标槽位%d: IsEmpty=%d, ItemUID=%s"),
+		TargetSlotID, TargetSlot.IsEmpty(), *TargetSlot.ItemInstanceUID.ToString());
+	
 	if (TargetSlot.IsEmpty())
 	{
 		// 目标槽位为空，直接移动
+		UE_LOG(LogGaia, Warning, TEXT("[容器内移动] ✅ 目标槽位为空，执行移动"));
 		// 设置移动数量
 		if (Quantity <= 0 || Quantity > SourceItemPtr->Quantity)
 		{
@@ -1649,17 +1757,26 @@ FMoveItemResult UGaiaInventorySubsystem::MoveItemWithinContainer(const FGuid& It
 		Result.TargetContainerUID = SourceItemPtr->CurrentContainerUID;
 		
 		UE_LOG(LogGaia, Log, TEXT("容器内移动成功: %s -> 槽位 %d"), *ItemUID.ToString(), TargetSlotID);
-	}
-	else
-	{
-		// 目标槽位有物品，需要处理
-		FGaiaItemInstance TargetItem;
-		if (FindItemByUID(TargetSlot.ItemInstanceUID, TargetItem))
-		{
-			return ProcessTargetSlotWithItem(ItemUID, TargetItem, SourceItemPtr->CurrentContainerUID, TargetSlotID, Quantity);
-		}
+		return Result; // ⭐ 修复：必须返回，避免被后面的代码覆盖
 	}
 	
+	// 目标槽位有物品，需要处理
+	UE_LOG(LogGaia, Warning, TEXT("[容器内移动] 目标槽位有物品，查找目标物品: %s"),
+		*TargetSlot.ItemInstanceUID.ToString());
+	
+	FGaiaItemInstance TargetItem;
+	if (FindItemByUID(TargetSlot.ItemInstanceUID, TargetItem))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[容器内移动] → 找到目标物品，调用 ProcessTargetSlotWithItem"));
+		return ProcessTargetSlotWithItem(ItemUID, TargetItem, SourceItemPtr->CurrentContainerUID, TargetSlotID, Quantity);
+	}
+	
+	// 无法找到目标物品（数据不一致）
+	UE_LOG(LogGaia, Error, TEXT("[容器内移动] ❌ 无法找到目标物品！槽位引用的物品UID不存在: %s"),
+		*TargetSlot.ItemInstanceUID.ToString());
+	
+	Result.ErrorMessage = TEXT("目标槽位数据异常：物品不存在");
+	Result.Result = EMoveItemResult::Failed;
 	return Result;
 }
 
@@ -1667,16 +1784,37 @@ FMoveItemResult UGaiaInventorySubsystem::ProcessTargetSlotWithItem(const FGuid& 
 {
 	FMoveItemResult Result;
 	
+	UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] 源物品: %s, 目标物品: %s (HasContainer: %d)"),
+		*ItemUID.ToString(),
+		*TargetItem.ItemDefinitionID.ToString(),
+		TargetItem.HasContainer());
+	
 	// 获取源物品
 	FGaiaItemInstance SourceItem;
 	if (!FindItemByUID(ItemUID, SourceItem))
 	{
 		Result.ErrorMessage = TEXT("无法找到源物品");
 		Result.Result = EMoveItemResult::InvalidTarget;
+		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ❌ 无法找到源物品"));
 		return Result;
 	}
 	
+	UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] 源物品: %s (HasContainer: %d)"),
+		*SourceItem.ItemDefinitionID.ToString(),
+		SourceItem.HasContainer());
+	
 	// 检查是否为相同类型（尝试堆叠）
+	if (SourceItem.ItemDefinitionID == TargetItem.ItemDefinitionID)
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] → 尝试堆叠"));
+	}
+	else
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] 类型不同: 源=%s, 目标=%s"),
+			*SourceItem.ItemDefinitionID.ToString(),
+			*TargetItem.ItemDefinitionID.ToString());
+	}
+	
 	if (SourceItem.ItemDefinitionID == TargetItem.ItemDefinitionID)
 	{
 		return TryStackItems(ItemUID, TargetItem.InstanceUID, Quantity);
@@ -1685,25 +1823,49 @@ FMoveItemResult UGaiaInventorySubsystem::ProcessTargetSlotWithItem(const FGuid& 
 	// 检查目标物品是否有容器（尝试放入容器）
 	if (TargetItem.HasContainer())
 	{
+		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] → 目标物品有容器，尝试放入"));
 		FMoveItemResult ContainerResult = TryMoveToContainer(ItemUID, TargetItem.InstanceUID, Quantity);
 		if (ContainerResult.Result == EMoveItemResult::Success)
 		{
+			UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ✅ 成功放入目标容器"));
 			return ContainerResult;
 		}
 		// 如果放入容器失败，不交换位置，直接返回失败
+		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ❌ 无法放入目标容器"));
 		Result.ErrorMessage = TEXT("无法放入目标物品的容器");
 		Result.Result = EMoveItemResult::ContainerRejected;
 		return Result;
 	}
 	
 	// 尝试交换位置
+	UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] → 尝试交换位置"));
 	if (CanSwapItems(ItemUID, TargetItem.InstanceUID))
 	{
+		UE_LOG(LogGaia, Warning, TEXT("[目标槽位有物品] ✅ 可以交换，执行交换"));
 		return SwapItems(ItemUID, TargetItem.InstanceUID);
 	}
 	
-	Result.ErrorMessage = TEXT("无法处理目标槽位");
+	// 交换失败，给出详细原因
+	FGaiaItemInstance SourceItemForCheck;
+	if (FindItemByUID(ItemUID, SourceItemForCheck))
+	{
+		// 检查是否因为带容器物品导致的问题
+		if (SourceItemForCheck.HasContainer() || TargetItem.HasContainer())
+		{
+			Result.ErrorMessage = TEXT("带容器的物品无法交换（可能因为：不允许嵌套容器、体积限制、或循环引用）");
+		}
+		else
+		{
+			Result.ErrorMessage = TEXT("无法交换：物品类型不同且不满足交换条件");
+		}
+	}
+	else
+	{
+		Result.ErrorMessage = TEXT("无法处理目标槽位");
+	}
+	
 	Result.Result = EMoveItemResult::Failed;
+	UE_LOG(LogGaia, Warning, TEXT("移动失败: %s"), *Result.ErrorMessage);
 	return Result;
 }
 
@@ -2092,23 +2254,31 @@ void UGaiaInventorySubsystem::BroadcastContainerUpdate(const FGuid& ContainerUID
 	}
 	
 	// 3. 通知所有相关玩家刷新库存
+	UE_LOG(LogGaia, Warning, TEXT("[网络广播] ⭐ 容器 %s 开始通知 %d 个玩家"), 
+		*ContainerUID.ToString(), PlayersToNotify.Num());
+	
 	for (APlayerController* PC : PlayersToNotify)
 	{
 		if (!PC) continue;
+		
+		UE_LOG(LogGaia, Warning, TEXT("[网络广播] 尝试通知玩家: %s"), *PC->GetName());
 		
 		// 查找玩家的 RPC 组件
 		UActorComponent* Component = PC->GetComponentByClass(UGaiaInventoryRPCComponent::StaticClass());
 		if (UGaiaInventoryRPCComponent* RPCComp = Cast<UGaiaInventoryRPCComponent>(Component))
 		{
+			UE_LOG(LogGaia, Warning, TEXT("[网络广播] ✅ 找到RPC组件，调用刷新: %p"), RPCComp);
+			
 			// 通知客户端刷新库存数据
 			// 这会在 ServerRequestRefreshInventory_Implementation 中执行
 			// 因为我们在服务器端，直接调用 Implementation 版本
 			RPCComp->ServerRequestRefreshInventory_Implementation();
 		}
+		else
+		{
+			UE_LOG(LogGaia, Error, TEXT("[网络广播] ❌ 未找到RPC组件"));
+		}
 	}
-	
-	UE_LOG(LogGaia, Verbose, TEXT("[网络广播] 容器 %s 已通知 %d 个玩家"), 
-		*ContainerUID.ToString(), PlayersToNotify.Num());
 }
 
 TArray<APlayerController*> UGaiaInventorySubsystem::GetContainerOwners(const FGuid& ContainerUID) const
@@ -2382,6 +2552,107 @@ bool UGaiaInventorySubsystem::CanPlayerAccessItem(APlayerController* PlayerContr
 
 	OutErrorMessage = TEXT("");
 	return true;
+}
+
+FContainerUIDebugInfo UGaiaInventorySubsystem::GetContainerDebugInfo(const FGuid& ContainerUID)
+{
+	FContainerUIDebugInfo DebugInfo;
+	DebugInfo.ContainerUID = ContainerUID;
+	
+	// 查找容器
+	FGaiaContainerInstance Container;
+	if (!FindContainerByUID(ContainerUID, Container))
+	{
+		DebugInfo.SlotUsage = TEXT("容器不存在");
+		return DebugInfo;
+	}
+	
+	// 基础信息
+	DebugInfo.ContainerDefID = Container.ContainerDefinitionID;
+	DebugInfo.OwnershipType = Container.OwnershipType;
+	
+	// 所有者信息
+	if (ContainerOwnerMap.Contains(ContainerUID))
+	{
+		if (APlayerController* Owner = ContainerOwnerMap[ContainerUID])
+		{
+			DebugInfo.OwnerPlayerName = Owner->GetName();
+		}
+	}
+	
+	// 授权玩家列表
+	for (const FGuid& PlayerUID : Container.AuthorizedPlayerUIDs)
+	{
+		DebugInfo.AuthorizedPlayerNames.Add(PlayerUID.ToString());
+	}
+	
+	// 当前访问者
+	if (WorldContainerAccessors.Contains(ContainerUID))
+	{
+		if (APlayerController* Accessor = WorldContainerAccessors[ContainerUID])
+		{
+			DebugInfo.CurrentAccessorName = Accessor->GetName();
+		}
+	}
+	
+	// 获取容器定义（用于获取限制值）
+	FGaiaContainerDefinition ContainerDef;
+	bool bFoundDef = GetContainerDefinition(Container.ContainerDefinitionID, ContainerDef);
+	
+	// 槽位使用情况
+	int32 UsedSlots = 0;
+	TArray<FGaiaItemInstance> ItemsInContainer = GetItemsInContainer(ContainerUID);
+	UsedSlots = ItemsInContainer.Num();
+	
+	int32 MaxSlots = bFoundDef ? ContainerDef.SlotCount : Container.Slots.Num();
+	
+	DebugInfo.SlotUsage = FString::Printf(TEXT("%d / %d (%.1f%%)"),
+		UsedSlots,
+		MaxSlots,
+		MaxSlots > 0 ? (float)UsedSlots / MaxSlots * 100.0f : 0.0f
+	);
+	
+	// 重量和体积信息
+	int32 TotalWeight = 0;
+	int32 TotalVolume = 0;
+	
+	for (const FGaiaItemInstance& Item : ItemsInContainer)
+	{
+		FGaiaItemDefinition ItemDef;
+		if (GetItemDefinition(Item.ItemDefinitionID, ItemDef))
+		{
+			TotalWeight += ItemDef.ItemWeight * Item.Quantity;
+			TotalVolume += ItemDef.ItemVolume * Item.Quantity;
+		}
+	}
+	
+	// 注意：当前项目没有实现MaxWeight限制，只有MaxVolume
+	int32 MaxVolume = bFoundDef ? ContainerDef.MaxVolume : 0;
+	bool bVolumeEnabled = bFoundDef && ContainerDef.bEnableVolumeLimit;
+	
+	DebugInfo.WeightInfo = FString::Printf(TEXT("%d (总重量)"), TotalWeight);
+	
+	DebugInfo.VolumeInfo = bVolumeEnabled
+		? FString::Printf(TEXT("%d / %d (%.1f%%)"),
+			TotalVolume,
+			MaxVolume,
+			MaxVolume > 0 ? (float)TotalVolume / MaxVolume * 100.0f : 0.0f
+		)
+		: FString::Printf(TEXT("%d (无限制)"), TotalVolume);
+	
+	// 物品列表
+	for (const FGaiaItemInstance& Item : ItemsInContainer)
+	{
+		FString ItemStr = FString::Printf(TEXT("槽位%d: %s x%d (UID: %s)"),
+			Item.CurrentSlotID,
+			*Item.ItemDefinitionID.ToString(),
+			Item.Quantity,
+			*Item.InstanceUID.ToString().Left(8) // 只显示前8位
+		);
+		DebugInfo.ItemList.Add(ItemStr);
+	}
+	
+	return DebugInfo;
 }
 
 //~END 网络/多人游戏支持

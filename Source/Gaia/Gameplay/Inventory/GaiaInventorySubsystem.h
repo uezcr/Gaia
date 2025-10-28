@@ -77,6 +77,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
 	UE_API FGuid CreateContainer(FName ContainerDefID);
 	
+	/**
+	 * 创建容器实例并注册所有者
+	 * @param ContainerDefID 容器定义ID
+	 * @param OwnerPlayerController 容器所有者（可为空，为空则不注册所有者）
+	 * @return 容器UID
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
+	UE_API FGuid CreateContainerForPlayer(FName ContainerDefID, APlayerController* OwnerPlayerController);
+	
 	//~END 实例创建
 
 	//~BEGIN 调试辅助
@@ -211,6 +220,14 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory|Ownership")
 	UE_API bool CanPlayerAccessItem(APlayerController* PlayerController, const FGuid& ItemUID, FString& OutErrorMessage) const;
+
+	/**
+	 * 获取容器的调试信息（用于UI显示）
+	 * @param ContainerUID 容器UID
+	 * @return 容器调试信息
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory|Debug")
+	UE_API FContainerUIDebugInfo GetContainerDebugInfo(const FGuid& ContainerUID);
 	
 	//~END 网络/多人游戏支持
 

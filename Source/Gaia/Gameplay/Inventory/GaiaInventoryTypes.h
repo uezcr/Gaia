@@ -4,6 +4,8 @@
 #include "Engine/DataTable.h"
 #include "GaiaInventoryTypes.generated.h"
 
+class UGaiaContainerWindowWidget;
+
 // ========================================
 // 网络同步事件委托
 // ========================================
@@ -189,6 +191,30 @@ public:
 public:
 	FGaiaItemDefinition()
 	{
+	}
+	
+	/**
+	 * 检查此物品定义是否允许堆叠
+	 * 注意：即使此函数返回true，物品实例如果包含容器，仍然不可堆叠
+	 * @return 是否可堆叠
+	 */
+	bool IsStackable() const
+	{
+		// 规则1：如果物品定义本身就不可堆叠，直接返回false
+		if (!bStackable)
+		{
+			return false;
+		}
+		
+		// 规则2：如果物品定义声明了容器功能，强制不可堆叠
+		// 原因：带容器的物品每个都有独立的存储空间，不应该堆叠
+		if (bHasContainer)
+		{
+			return false;
+		}
+		
+		// 其他情况，可以堆叠
+		return true;
 	}
 };
 
@@ -555,4 +581,125 @@ public:
 	{
 		AuthorizedPlayerUIDs.Empty();
 	}
+};
+
+// ========================================
+// UI相关枚举和结构
+// ========================================
+
+/** UI层级类型 */
+UENUM(BlueprintType)
+enum class EInventoryUILayer : uint8
+{
+	/** 玩家背包（基础层） */
+	PlayerBackpack UMETA(DisplayName = "PlayerBackpack"),
+	
+	/** 容器窗口（可多个） */
+	ContainerWindow UMETA(DisplayName = "ContainerWindow"),
+	
+	/** 右键菜单 */
+	ContextMenu UMETA(DisplayName = "ContextMenu"),
+	
+	/** 数量输入对话框 */
+	QuantityDialog UMETA(DisplayName = "QuantityDialog"),
+	
+	/** 确认对话框 */
+	ConfirmDialog UMETA(DisplayName = "ConfirmDialog")
+};
+
+/** UI栈元素 */
+USTRUCT(BlueprintType)
+struct FInventoryUIStackElement
+{
+	GENERATED_BODY()
+	
+	/** UI层级类型 */
+	UPROPERTY(BlueprintReadOnly)
+	EInventoryUILayer LayerType = EInventoryUILayer::ContainerWindow;
+	
+	/** Widget引用 */
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<UUserWidget> Widget = nullptr;
+	
+	/** 关联的容器UID（如果是容器窗口） */
+	UPROPERTY(BlueprintReadOnly)
+	FGuid ContainerUID;
+	
+	/** 打开时间戳（用于排序） */
+	UPROPERTY(BlueprintReadOnly)
+	float OpenTimestamp = 0.0f;
+};
+
+/** 容器窗口信息 */
+USTRUCT(BlueprintType)
+struct FContainerWindowInfo
+{
+	GENERATED_BODY()
+	
+	/** 容器UID */
+	UPROPERTY(BlueprintReadWrite)
+	FGuid ContainerUID;
+	
+	/** 窗口Widget */
+	UPROPERTY(BlueprintReadWrite)
+	TObjectPtr<UGaiaContainerWindowWidget> WindowWidget = nullptr;
+	
+	/** 窗口位置 */
+	UPROPERTY(BlueprintReadWrite)
+	FVector2D Position = FVector2D::ZeroVector;
+	
+	/** 窗口大小 */
+	UPROPERTY(BlueprintReadWrite)
+	FVector2D Size = FVector2D::ZeroVector;
+	
+	/** Z-Order（越大越在上面） */
+	UPROPERTY(BlueprintReadWrite)
+	int32 ZOrder = 0;
+};
+
+/** 容器UI调试信息 */
+USTRUCT(BlueprintType)
+struct FContainerUIDebugInfo
+{
+	GENERATED_BODY()
+	
+	/** 容器UID */
+	UPROPERTY(BlueprintReadOnly)
+	FGuid ContainerUID;
+	
+	/** 容器定义ID */
+	UPROPERTY(BlueprintReadOnly)
+	FName ContainerDefID = NAME_None;
+	
+	/** 所有权类型 */
+	UPROPERTY(BlueprintReadOnly)
+	EContainerOwnershipType OwnershipType = EContainerOwnershipType::World;
+	
+	/** 所有者玩家名称 */
+	UPROPERTY(BlueprintReadOnly)
+	FString OwnerPlayerName;
+	
+	/** 授权玩家列表 */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FString> AuthorizedPlayerNames;
+	
+	/** 当前访问者 */
+	UPROPERTY(BlueprintReadOnly)
+	FString CurrentAccessorName;
+	
+	/** 槽位使用情况 */
+	UPROPERTY(BlueprintReadOnly)
+	FString SlotUsage;
+	
+	/** 重量信息 */
+	UPROPERTY(BlueprintReadOnly)
+	FString WeightInfo;
+	
+	/** 体积信息 */
+	UPROPERTY(BlueprintReadOnly)
+	FString VolumeInfo;
+	
+	/** 物品列表（调试用） */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FString> ItemList;
 };

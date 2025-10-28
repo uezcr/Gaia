@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModularPlayerController.h"
+#include "CommonPlayerController.h"
 #include "GaiaPlayerController.generated.h"
 
 class UGaiaInventoryRPCComponent;
@@ -12,7 +12,7 @@ class UGaiaInventoryRPCComponent;
  * 包含库存系统的网络同步组件
  */
 UCLASS()
-class GAIAGAME_API AGaiaPlayerController : public AModularPlayerController
+class GAIAGAME_API AGaiaPlayerController : public ACommonPlayerController
 {
 	GENERATED_BODY()
 

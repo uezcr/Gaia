@@ -448,9 +448,12 @@ bool UGaiaInventoryRPCComponent::ServerCloseWorldContainer_Validate(const FGuid&
 
 void UGaiaInventoryRPCComponent::ServerRequestRefreshInventory_Implementation()
 {
+	UE_LOG(LogGaia, Warning, TEXT("[RPC组件] ⭐ ServerRequestRefreshInventory 被调用"));
+	
 	UGaiaInventorySubsystem* InventorySystem = GetInventorySubsystem();
 	if (!InventorySystem)
 	{
+		UE_LOG(LogGaia, Error, TEXT("[RPC组件] ❌ 无法获取InventorySubsystem"));
 		return;
 	}
 
@@ -486,10 +489,10 @@ void UGaiaInventoryRPCComponent::ServerRequestRefreshInventory_Implementation()
 	}
 
 	// 发送给客户端
-	ClientReceiveInventoryData(PlayerItems, PlayerContainers);
-
-	UE_LOG(LogGaia, Verbose, TEXT("[网络] 发送库存数据给客户端: %d 个物品, %d 个容器"),
+	UE_LOG(LogGaia, Warning, TEXT("[RPC组件] ⭐ 调用 ClientReceiveInventoryData: %d 个物品, %d 个容器"),
 		PlayerItems.Num(), PlayerContainers.Num());
+	
+	ClientReceiveInventoryData(PlayerItems, PlayerContainers);
 }
 
 // ========================================
@@ -500,7 +503,7 @@ void UGaiaInventoryRPCComponent::ClientReceiveInventoryData_Implementation(
 	const TArray<FGaiaItemInstance>& Items,
 	const TArray<FGaiaContainerInstance>& Containers)
 {
-	UE_LOG(LogGaia, Log, TEXT("[网络] 客户端收到库存数据: %d 个物品, %d 个容器"),
+	UE_LOG(LogGaia, Warning, TEXT("[RPC组件] ⭐⭐⭐ ClientReceiveInventoryData 被调用: %d 个物品, %d 个容器"),
 		Items.Num(), Containers.Num());
 
 	// 更新本地缓存
@@ -517,6 +520,7 @@ void UGaiaInventoryRPCComponent::ClientReceiveInventoryData_Implementation(
 	}
 
 	// 触发更新事件（UI可以监听此事件）
+	UE_LOG(LogGaia, Warning, TEXT("[RPC组件] ⭐⭐⭐ 广播 OnInventoryUpdated 事件"));
 	OnInventoryUpdated.Broadcast();
 }
 
@@ -547,6 +551,8 @@ void UGaiaInventoryRPCComponent::ClientReceiveInventoryDelta_Implementation(
 	}
 
 	// 触发更新事件
+	UE_LOG(LogGaia, Warning, TEXT("[RPC组件] ⭐ 广播 OnInventoryUpdated 事件，绑定数量: %d"),
+		OnInventoryUpdated.IsBound() ? 1 : 0);
 	OnInventoryUpdated.Broadcast();
 }
 

@@ -84,7 +84,7 @@ protected:
 	UE_API virtual void OnRootLayoutRemovedFromViewport(UCommonLocalPlayer* LocalPlayer, UPrimaryGameLayout* Layout);
 	UE_API virtual void OnRootLayoutReleased(UCommonLocalPlayer* LocalPlayer, UPrimaryGameLayout* Layout);
 
-	UE_API void CreateLayoutWidget(UCommonLocalPlayer* LocalPlayer);
+	UE_API virtual void CreateLayoutWidget(UCommonLocalPlayer* LocalPlayer);
 	UE_API TSubclassOf<UPrimaryGameLayout> GetLayoutWidgetClass(UCommonLocalPlayer* LocalPlayer);
 
 private:
