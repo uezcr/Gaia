@@ -173,7 +173,7 @@ bool UGaiaInventoryTestHelper::TestContainerCreation(const UObject* WorldContext
 	}
 
 	// 测试1: 创建容器
-	FGuid ContainerUID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
+	FGuid ContainerUID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
 	if (!ContainerUID.IsValid())
 	{
 		LogTestResult(TEXT("容器创建"), false, TEXT("- UID无效"));
@@ -196,8 +196,8 @@ bool UGaiaInventoryTestHelper::TestContainerCreation(const UObject* WorldContext
 	}
 
 	// 测试4: UID唯一性
-	FGuid Container2UID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
-	FGuid Container3UID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
+	FGuid Container2UID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
+	FGuid Container3UID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
 	if (Container2UID == Container3UID || Container2UID == ContainerUID)
 	{
 		LogTestResult(TEXT("容器创建"), false, TEXT("- UID不唯一"));
@@ -260,7 +260,7 @@ bool UGaiaInventoryTestHelper::TestAddAndFindItem(const UObject* WorldContextObj
 	}
 
 	// 创建容器和物品
-	FGuid ContainerUID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
+	FGuid ContainerUID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
 	FGaiaItemInstance Item = InventorySystem->CreateItemInstance(TEXT("TestItem"), 5);
 
 	if (!ContainerUID.IsValid() || !Item.IsValid())
@@ -270,7 +270,8 @@ bool UGaiaInventoryTestHelper::TestAddAndFindItem(const UObject* WorldContextObj
 	}
 
 	// 测试1: 添加物品
-	bool bAddSuccess = InventorySystem->AddItemToContainer(Item, ContainerUID);
+	FAddItemResult AddResult = InventorySystem->TryAddItemToContainer(Item.InstanceUID, ContainerUID);
+	bool bAddSuccess = AddResult.IsSuccess();
 	if (!bAddSuccess)
 	{
 		LogTestResult(TEXT("物品添加和查找"), false, TEXT("- 添加物品失败"));
@@ -316,14 +317,14 @@ bool UGaiaInventoryTestHelper::TestRemoveItem(const UObject* WorldContextObject)
 	}
 
 	// 创建容器并添加多个物品
-	FGuid ContainerUID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
+	FGuid ContainerUID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
 	FGaiaItemInstance Item1 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 5);
 	FGaiaItemInstance Item2 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 10);
 	FGaiaItemInstance Item3 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 15);
 
-	InventorySystem->AddItemToContainer(Item1, ContainerUID);
-	InventorySystem->AddItemToContainer(Item2, ContainerUID);
-	InventorySystem->AddItemToContainer(Item3, ContainerUID);
+	InventorySystem->TryAddItemToContainer(Item1.InstanceUID, ContainerUID);
+	InventorySystem->TryAddItemToContainer(Item2.InstanceUID, ContainerUID);
+	InventorySystem->TryAddItemToContainer(Item3.InstanceUID, ContainerUID);
 
 	TArray<FGaiaItemInstance> ItemsInContainer = InventorySystem->GetItemsInContainer(ContainerUID);
 	if (ItemsInContainer.Num() != 3)
@@ -388,7 +389,7 @@ bool UGaiaInventoryTestHelper::TestPerformance(const UObject* WorldContextObject
 	}
 
 	// 创建容器
-	FGuid ContainerUID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
+	FGuid ContainerUID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
 	
 	TArray<FGuid> ItemUIDs;
 	ItemUIDs.Reserve(ItemCount);
@@ -400,7 +401,7 @@ bool UGaiaInventoryTestHelper::TestPerformance(const UObject* WorldContextObject
 	{
 		FGaiaItemInstance Item = InventorySystem->CreateItemInstance(TEXT("TestItem"), i + 1);
 		ItemUIDs.Add(Item.InstanceUID);
-		InventorySystem->AddItemToContainer(Item, ContainerUID);
+		InventorySystem->TryAddItemToContainer(Item.InstanceUID, ContainerUID);
 	}
 	
 	double CreateTime = FPlatformTime::Seconds() - StartTime;
@@ -464,8 +465,8 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 	UE_LOG(LogGaia, Log, TEXT("=== 开始移动物品测试 ==="));
 
 	// 创建测试容器
-	FGuid Container1UID = InventorySystem->CreateContainer(TEXT("TestContainer"));
-	FGuid Container2UID = InventorySystem->CreateContainer(TEXT("TestContainer"));
+	FGuid Container1UID = InventorySystem->CreateContainerInstance(TEXT("TestContainer"));
+	FGuid Container2UID = InventorySystem->CreateContainerInstance(TEXT("TestContainer"));
 	
 	if (!Container1UID.IsValid() || !Container2UID.IsValid())
 	{
@@ -486,9 +487,9 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 
 	// 测试1: 移动到空槽位
 	FGaiaItemInstance Item1 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 10);
-	InventorySystem->AddItemToContainer(Item1, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item1.InstanceUID, Container1UID);
 	
-	FMoveItemResult MoveResult = InventorySystem->MoveItem(Item1.InstanceUID, Container2UID, 0, 5);
+	FMoveItemResult MoveResult = InventorySystem->TryMoveItem(Item1.InstanceUID, Container2UID, 0, 5);
 	if (!MoveResult.IsSuccess())
 	{
 		LogTestResult(TEXT("移动到空槽位"), false, FString::Printf(TEXT("- 移动失败: %s"), *FormatMoveResult(MoveResult)));
@@ -503,9 +504,9 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 
 	// 测试2: 堆叠相同物品
 	FGaiaItemInstance Item2 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 3);
-	InventorySystem->AddItemToContainer(Item2, Container2UID);
+	InventorySystem->TryAddItemToContainer(Item2.InstanceUID, Container2UID);
 	
-	FMoveItemResult StackResult = InventorySystem->MoveItem(Item2.InstanceUID, Container2UID, 0, 3);
+	FMoveItemResult StackResult = InventorySystem->TryMoveItem(Item2.InstanceUID, Container2UID, 0, 3);
 	if (!StackResult.IsSuccess())
 	{
 		LogTestResult(TEXT("堆叠相同物品"), false, FString::Printf(TEXT("- 堆叠失败: %s"), *FormatMoveResult(StackResult)));
@@ -539,9 +540,9 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 	}
 	
 	FGaiaItemInstance Item3 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 20);
-	InventorySystem->AddItemToContainer(Item3, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item3.InstanceUID, Container1UID);
 	
-	FMoveItemResult PartialStackResult = InventorySystem->MoveItem(Item3.InstanceUID, Container2UID, 0, 20);
+	FMoveItemResult PartialStackResult = InventorySystem->TryMoveItem(Item3.InstanceUID, Container2UID, 0, 20);
 	
 	// 根据实际情况判断结果
 	bool bIsPartialStack = (PartialStackResult.Result == EMoveItemResult::PartialSuccess);
@@ -570,9 +571,9 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 
 	// 测试4: 交换不同物品
 	FGaiaItemInstance Item4 = InventorySystem->CreateItemInstance(TEXT("TestItem2"), 5);
-	InventorySystem->AddItemToContainer(Item4, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item4.InstanceUID, Container1UID);
 	
-	FMoveItemResult SwapResult = InventorySystem->MoveItem(Item4.InstanceUID, Container2UID, 0, 5);
+	FMoveItemResult SwapResult = InventorySystem->TryMoveItem(Item4.InstanceUID, Container2UID, 0, 5);
 	if (SwapResult.Result != EMoveItemResult::SwapPerformed)
 	{
 		LogTestResult(TEXT("交换不同物品"), false, FString::Printf(TEXT("- 交换失败: %s"), *FormatMoveResult(SwapResult)));
@@ -587,7 +588,7 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 
 	// 测试5: 快速移动
 	FGaiaItemInstance Item5 = InventorySystem->CreateItemInstance(TEXT("TestItem3"), 7);
-	InventorySystem->AddItemToContainer(Item5, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item5.InstanceUID, Container1UID);
 	
 	FMoveItemResult QuickMoveResult = InventorySystem->QuickMoveItem(Item5.InstanceUID, Container2UID);
 	if (!QuickMoveResult.IsSuccess())
@@ -604,7 +605,7 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 
 	// 测试6: 拆分移动
 	FGaiaItemInstance Item6 = InventorySystem->CreateItemInstance(TEXT("TestItem4"), 15);
-	InventorySystem->AddItemToContainer(Item6, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item6.InstanceUID, Container1UID);
 	
 	FMoveItemResult SplitResult = InventorySystem->SplitItem(Item6.InstanceUID, Container2UID, 8);
 	if (!SplitResult.IsSuccess())
@@ -634,7 +635,7 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 	}
 	
 	// 容器内移动：从当前槽位移动3个到槽位2
-	FMoveItemResult WithinContainerResult = InventorySystem->MoveItem(Item6.InstanceUID, Item6Current.CurrentContainerUID, 2, 3);
+	FMoveItemResult WithinContainerResult = InventorySystem->TryMoveItem(Item6.InstanceUID, Item6Current.CurrentContainerUID, 2, 3);
 	if (!WithinContainerResult.IsSuccess())
 	{
 		LogTestResult(TEXT("容器内移动"), false, FString::Printf(TEXT("- 容器内移动失败: %s"), *FormatMoveResult(WithinContainerResult)));
@@ -650,9 +651,9 @@ bool UGaiaInventoryTestHelper::RunMoveItemTests(const UObject* WorldContextObjec
 
 	// 测试8: 自动分配槽位
 	FGaiaItemInstance Item7 = InventorySystem->CreateItemInstance(TEXT("TestItem5"), 4);
-	InventorySystem->AddItemToContainer(Item7, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item7.InstanceUID, Container1UID);
 	
-	FMoveItemResult AutoSlotResult = InventorySystem->MoveItem(Item7.InstanceUID, Container2UID, -1, 4);
+	FMoveItemResult AutoSlotResult = InventorySystem->TryMoveItem(Item7.InstanceUID, Container2UID, -1, 4);
 	if (!AutoSlotResult.IsSuccess())
 	{
 		LogTestResult(TEXT("自动分配槽位"), false, FString::Printf(TEXT("- 自动分配槽位失败: %s"), *FormatMoveResult(AutoSlotResult)));
@@ -692,12 +693,12 @@ bool UGaiaInventoryTestHelper::TestRemoveAndOrphanItem(const UObject* WorldConte
 	}
 
 	// 创建容器并添加物品
-	FGuid ContainerUID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
+	FGuid ContainerUID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
 	FGaiaItemInstance Item1 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 10);
 	FGaiaItemInstance Item2 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 20);
 	
-	InventorySystem->AddItemToContainer(Item1, ContainerUID);
-	InventorySystem->AddItemToContainer(Item2, ContainerUID);
+	InventorySystem->TryAddItemToContainer(Item1.InstanceUID, ContainerUID);
+	InventorySystem->TryAddItemToContainer(Item2.InstanceUID, ContainerUID);
 
 	// 测试1: 移除物品（应该变为游离状态，不删除）
 	bool bRemoveSuccess = InventorySystem->RemoveItemFromContainer(Item1.InstanceUID);
@@ -799,16 +800,16 @@ bool UGaiaInventoryTestHelper::TestDataIntegrity(const UObject* WorldContextObje
 	}
 
 	// 创建测试数据
-	FGuid Container1UID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
-	FGuid Container2UID = InventorySystem->CreateContainer(TEXT("TestBackpack"));
+	FGuid Container1UID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
+	FGuid Container2UID = InventorySystem->CreateContainerInstance(TEXT("TestBackpack"));
 	
 	FGaiaItemInstance Item1 = InventorySystem->CreateItemInstance(TEXT("TestDataIntegrity"), 10);
 	FGaiaItemInstance Item2 = InventorySystem->CreateItemInstance(TEXT("TestDataIntegrity"), 20);
 	FGaiaItemInstance Item3 = InventorySystem->CreateItemInstance(TEXT("TestDataIntegrity"), 30);
 	
-	InventorySystem->AddItemToContainer(Item1, Container1UID);
-	InventorySystem->AddItemToContainer(Item2, Container1UID);
-	InventorySystem->AddItemToContainer(Item3, Container2UID);
+	InventorySystem->TryAddItemToContainer(Item1.InstanceUID, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item2.InstanceUID, Container1UID);
+	InventorySystem->TryAddItemToContainer(Item3.InstanceUID, Container2UID);
 
 	// 测试1: 验证数据一致性
 	bool bIsValid = InventorySystem->ValidateDataIntegrity();
@@ -856,7 +857,7 @@ bool UGaiaInventoryTestHelper::TestContainerDeletion(const UObject* WorldContext
 	}
 
 	// 创建主背包
-	FGuid MainBackpackUID = InventorySystem->CreateContainer(TEXT("TestBackpackBig"));
+	FGuid MainBackpackUID = InventorySystem->CreateContainerInstance(TEXT("TestBackpackBig"));
 	
 	// 创建一个有容器的物品（子背包）
 	FGaiaItemInstance SubBackpack = InventorySystem->CreateItemInstance(TEXT("TestBackpackSmall"), 1);
@@ -872,11 +873,11 @@ bool UGaiaInventoryTestHelper::TestContainerDeletion(const UObject* WorldContext
 	FGaiaItemInstance Item1 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 10);
 	FGaiaItemInstance Item2 = InventorySystem->CreateItemInstance(TEXT("TestItem"), 20);
 	
-	InventorySystem->AddItemToContainer(Item1, SubBackpackContainerUID);
-	InventorySystem->AddItemToContainer(Item2, SubBackpackContainerUID);
+	InventorySystem->TryAddItemToContainer(Item1.InstanceUID, SubBackpackContainerUID);
+	InventorySystem->TryAddItemToContainer(Item2.InstanceUID, SubBackpackContainerUID);
 	
 	// 将子背包放入主背包
-	InventorySystem->AddItemToContainer(SubBackpack, MainBackpackUID);
+	InventorySystem->TryAddItemToContainer(SubBackpack.InstanceUID, MainBackpackUID);
 	
 	// 测试1: 验证容器关系
 	FGaiaContainerInstance SubContainer;

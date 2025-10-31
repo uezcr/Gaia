@@ -1,6 +1,6 @@
 # Gaia 库存系统文档
 
-> **完整的企业级库存系统**：支持物品管理、容器嵌套、多人联机、权限控制
+> **完整的企业级库存系统**：支持物品管理、容器嵌套、多人联机
 
 ---
 
@@ -10,39 +10,36 @@
 
 1. **[系统设计说明.md](系统设计说明.md)** - 整体架构和设计理念
 2. **[执行流程说明.md](执行流程说明.md)** - 操作执行流程和数据流转
-3. **[容器所有权和权限系统.md](容器所有权和权限系统.md)** - 权限控制系统 ⭐ **重点**
 
 ### 🌐 联机功能
 
-4. **[基于WorldSubsystem的联机方案.md](基于WorldSubsystem的联机方案.md)** - 网络架构方案
-5. **[RPCComponent使用指南.md](RPCComponent使用指南.md)** - RPC组件使用指南
-6. **[容器独占访问功能说明.md](容器独占访问功能说明.md)** - 独占访问机制
-7. **[服务器广播功能说明.md](服务器广播功能说明.md)** - 智能广播系统
-8. **[联机同步方案.md](联机同步方案.md)** - 多种方案对比（参考）
+3. **[基于WorldSubsystem的联机方案.md](基于WorldSubsystem的联机方案.md)** - 网络架构方案
+4. **[RPCComponent使用指南.md](RPCComponent使用指南.md)** - RPC组件使用指南
+5. **[服务器广播功能说明.md](服务器广播功能说明.md)** - 智能广播系统
+6. **[联机同步方案.md](联机同步方案.md)** - 多种方案对比（参考）
 
-### 🎨 UI系统 ⭐ **新增**
+### 🎨 UI系统
 
-9. **[UI/README.md](UI/README.md)** - UI系统总览和快速开始
-10. **[UI/UI系统使用手册.md](UI/UI系统使用手册.md)** - 完整的使用指南
-11. **[UI/UI系统架构说明.md](UI/UI系统架构说明.md)** - 深入了解系统设计
+7. **[UI/README.md](UI/README.md)** - UI系统总览和快速开始
+8. **[UI/UI系统使用手册.md](UI/UI系统使用手册.md)** - 完整的使用指南
+9. **[UI/UI系统架构说明.md](UI/UI系统架构说明.md)** - 深入了解系统设计
 
 ### 🧪 测试相关
 
-13. **[测试指南.md](测试指南.md)** - 如何测试库存系统
-14. **[测试Actor使用指南.md](测试Actor使用指南.md)** - 单机测试Actor
-15. **[网络测试Actor使用指南.md](网络测试Actor使用指南.md)** - 联机测试Actor
-16. **[移动功能测试计划.md](移动功能测试计划.md)** - 详细测试计划（12个用例）
+10. **[测试指南.md](测试指南.md)** - 如何测试库存系统
+11. **[测试Actor使用指南.md](测试Actor使用指南.md)** - 单机测试Actor
+12. **[网络测试Actor使用指南.md](网络测试Actor使用指南.md)** - 联机测试Actor
+13. **[移动功能测试计划.md](移动功能测试计划.md)** - 详细测试计划（12个用例）
 
 ---
 
 ## 🎯 **快速开始**
 
-### 新手入门（4步）
+### 新手入门（3步）
 
 1. **[系统设计说明.md](系统设计说明.md)** - 了解核心架构
-2. **[容器所有权和权限系统.md](容器所有权和权限系统.md)** - 掌握权限控制
-3. **[RPCComponent使用指南.md](RPCComponent使用指南.md)** - 开始编写代码
-4. **[UI/UI系统使用手册.md](UI/UI系统使用手册.md)** - 创建UI界面 ⭐ **新增**
+2. **[RPCComponent使用指南.md](RPCComponent使用指南.md)** - 开始编写代码
+3. **[UI/UI系统使用手册.md](UI/UI系统使用手册.md)** - 创建UI界面
 
 ### 开发者路线
 
@@ -61,7 +58,7 @@
 - ✅ **物品槽位** - 显示、交互、拖放
 - ✅ **容器网格** - 自动布局、刷新机制
 - ✅ **拖放系统** - 移动、交换、堆叠
-- ✅ **调试信息** - 权限、槽位、物品列表
+- ✅ **调试信息** - 槽位、物品列表
 - ✅ **Layer管理** - 4层UI（Game、Container、Menu、Modal）
 - ✅ **事件驱动** - 自动同步网络变化
 - ⏳ **增强功能** - 右键菜单、Tooltip、拆分对话框（待实现）
@@ -79,11 +76,10 @@
 
 ### 🌐 网络功能
 
-- **4种容器类型** - Private（私有）、World（世界）、Shared（共享）、Trade（交易）
-- **权限系统** - 完整的访问控制，防止非法操作
-- **独占访问** - 世界容器同时只能一人打开
+- **服务器权威** - 所有数据存储和验证在服务器端
 - **智能广播** - 自动通知相关玩家更新数据
 - **RPC组件** - 轻量级网络通信，客户端-服务器同步
+- **数据缓存** - 客户端本地缓存，提升UI性能
 
 ### 🧪 调试工具
 
@@ -102,13 +98,18 @@
 // 获取库存子系统
 auto* InvSys = UGaiaInventorySubsystem::Get(GetWorld());
 
-// 创建玩家背包（私有容器）
-FGuid BackpackUID = InvSys->CreateContainer(TEXT("PlayerBackpack"));
-InvSys->RegisterContainerOwner(PlayerController, BackpackUID);
+// 创建玩家背包
+FGuid BackpackUID = InvSys->CreateContainerInstance(TEXT("PlayerBackpack"));
+
+// 将背包添加到玩家的拥有容器列表（用于网络同步）
+if (UGaiaInventoryRPCComponent* RPCComp = PlayerController->FindComponentByClass<UGaiaInventoryRPCComponent>())
+{
+    RPCComp->AddOwnedContainerUID(BackpackUID);
+}
 
 // 创建物品并添加到背包
 FGaiaItemInstance Wood = InvSys->CreateItemInstance(TEXT("Wood"), 10);
-InvSys->AddItemToContainer(Wood, BackpackUID);
+FAddItemResult AddResult = InvSys->TryAddItemToContainer(Wood.InstanceUID, BackpackUID);
 
 // 移动物品
 FMoveItemResult Result = InvSys->MoveItem(ItemUID, TargetContainerUID, SlotID, Quantity);
@@ -162,7 +163,7 @@ InvSys->RepairDataIntegrity();
 
 - **O(1) 查找** - 基于 `TMap` 的快速查找
 - **零数据冗余** - 单一数据源，无副本
-- **网络安全** - 服务器权威，完整权限验证
+- **网络安全** - 服务器权威，客户端只读缓存
 - **高可扩展** - 模块化设计，易于扩展
 
 ---

@@ -11,6 +11,7 @@ class UImage;
 class UTextBlock;
 class UBorder;
 class USizeBox;
+class UGaiaItemContextMenu;
 
 /**
  * 物品槽位Widget
@@ -142,6 +143,27 @@ protected:
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category = "Gaia|UI|ItemSlot")
 	void OnCtrlClick();
+
+	// ========================================
+	// 右键菜单
+	// ========================================
+
+	/** 右键菜单Widget类（在UMG蓝图中配置） */
+	UPROPERTY(EditDefaultsOnly, Category = "Gaia|UI|ItemSlot")
+	TSubclassOf<UGaiaItemContextMenu> ContextMenuClass;
+
+	/**
+	 * 显示右键菜单
+	 * @param ScreenPosition 屏幕位置
+	 */
+	void ShowContextMenu(FVector2D ScreenPosition);
+
+	/**
+	 * 获取物品定义
+	 * @param OutItemDef 输出的物品定义
+	 * @return 是否成功获取
+	 */
+	bool GetItemDefinition(FGaiaItemDefinition& OutItemDef) const;
 
 protected:
 	/** 所属容器UID */

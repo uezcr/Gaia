@@ -240,6 +240,11 @@ public:
 	TArray<FGuid> GetOwnedContainerUIDs() const { return OwnedContainerUIDs; }
 
 	/**
+	 * 添加拥有的容器UID（用于权限注册）
+	 */
+	void AddOwnedContainerUID(const FGuid& ContainerUID);
+
+	/**
 	 * 获取当前打开的世界容器UID列表
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")

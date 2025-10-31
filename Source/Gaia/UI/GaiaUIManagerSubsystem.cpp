@@ -6,7 +6,9 @@
 #include "Inventory/GaiaContainerWindowWidget.h"
 #include "Inventory/GaiaContainerGridWidget.h"
 #include "Gameplay/Inventory/GaiaInventoryRPCComponent.h"
+#include "Gameplay/Inventory/GaiaInventorySubsystem.h"
 #include "Player/GaiaPlayerController.h"
+#include "Widgets/CommonActivatableWidgetContainer.h"
 
 UGaiaUIManagerSubsystem::UGaiaUIManagerSubsystem()
 {
@@ -81,11 +83,19 @@ UGaiaContainerWindowWidget* UGaiaUIManagerSubsystem::OpenContainerWindow(
 		return nullptr;
 	}
 
+	UE_LOG(LogGaia, Warning, TEXT("========================================"));
+	UE_LOG(LogGaia, Warning, TEXT("⭐ OpenContainerWindow 被调用"));
+	UE_LOG(LogGaia, Warning, TEXT("  ContainerUID: %s"), *ContainerUID.ToString());
+	UE_LOG(LogGaia, Warning, TEXT("  当前打开的窗口数: %d"), OpenContainerWindows.Num());
+	
 	// 检查是否已打开
 	if (OpenContainerWindows.Contains(ContainerUID))
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[Gaia UI] 容器窗口已打开: %s"), *ContainerUID.ToString());
-		return OpenContainerWindows[ContainerUID];
+		UE_LOG(LogGaia, Warning, TEXT("  ⚠️ 容器窗口已打开，返回现有窗口"));
+		UGaiaContainerWindowWidget* ExistingWindow = OpenContainerWindows[ContainerUID];
+		UE_LOG(LogGaia, Warning, TEXT("  现有窗口指针: %p"), ExistingWindow);
+		UE_LOG(LogGaia, Warning, TEXT("========================================"));
+		return ExistingWindow;
 	}
 
 	// 获取PrimaryGameLayout
@@ -126,7 +136,15 @@ UGaiaContainerWindowWidget* UGaiaUIManagerSubsystem::OpenContainerWindow(
 			BindInventoryEvents();
 		}
 		
-		UE_LOG(LogGaia, Log, TEXT("[Gaia UI] 打开容器窗口: %s"), *ContainerUID.ToString());
+		UE_LOG(LogGaia, Warning, TEXT("  ✅ 新窗口创建成功"));
+		UE_LOG(LogGaia, Warning, TEXT("  窗口指针: %p"), Window);
+		UE_LOG(LogGaia, Warning, TEXT("  打开后窗口数: %d"), OpenContainerWindows.Num());
+		UE_LOG(LogGaia, Warning, TEXT("========================================"));
+	}
+	else
+	{
+		UE_LOG(LogGaia, Error, TEXT("  ❌ 新窗口创建失败！"));
+		UE_LOG(LogGaia, Warning, TEXT("========================================"));
 	}
 
 	return Window;
@@ -134,24 +152,40 @@ UGaiaContainerWindowWidget* UGaiaUIManagerSubsystem::OpenContainerWindow(
 
 void UGaiaUIManagerSubsystem::CloseContainerWindow(UGaiaContainerWindowWidget* Widget)
 {
+	UE_LOG(LogGaia, Warning, TEXT("========================================"));
+	UE_LOG(LogGaia, Warning, TEXT("⭐ CloseContainerWindow 被调用"));
+	UE_LOG(LogGaia, Warning, TEXT("  Widget指针: %p"), Widget);
+	
 	if (!Widget)
 	{
+		UE_LOG(LogGaia, Warning, TEXT("  ❌ Widget为空，取消关闭"));
+		UE_LOG(LogGaia, Warning, TEXT("========================================"));
 		return;
 	}
 
 	FGuid ContainerUID = Widget->GetContainerUID();
+	UE_LOG(LogGaia, Warning, TEXT("  ContainerUID: %s"), *ContainerUID.ToString());
+	UE_LOG(LogGaia, Warning, TEXT("  关闭前窗口数: %d"), OpenContainerWindows.Num());
+	
+	// 检查窗口是否在映射表中
+	if (!OpenContainerWindows.Contains(ContainerUID))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("  ⚠️ 窗口不在映射表中，可能已被移除"));
+		UE_LOG(LogGaia, Warning, TEXT("========================================"));
+		return;
+	}
 	
 	// 从映射表移除
-	OpenContainerWindows.Remove(ContainerUID);
+	bool bRemoved = OpenContainerWindows.Remove(ContainerUID) > 0;
+	UE_LOG(LogGaia, Warning, TEXT("  从映射表移除: %s"), bRemoved ? TEXT("✅ 成功") : TEXT("❌ 失败"));
+	UE_LOG(LogGaia, Warning, TEXT("  关闭后窗口数: %d"), OpenContainerWindows.Num());
 
-	// 从Layer移除
-	UGaiaPrimaryGameLayout* Layout = GetPrimaryGameLayout();
-	if (Layout)
-	{
-		Layout->FindAndRemoveWidgetFromLayer(Widget);
-	}
+	// ⚠️ 注意：不要在这里调用 FindAndRemoveWidgetFromLayer
+	// 因为这个函数是从 NativeOnDeactivated 调用的，此时 Widget 已经在停用过程中
+	// Layer 会自动处理 Widget 的移除
+	UE_LOG(LogGaia, Warning, TEXT("  ℹ️ Widget 由 CommonUI Layer 自动管理，无需手动移除"));
 
-	UE_LOG(LogGaia, Log, TEXT("[Gaia UI] 关闭容器窗口: %s"), *ContainerUID.ToString());
+	UE_LOG(LogGaia, Warning, TEXT("========================================"));
 }
 
 void UGaiaUIManagerSubsystem::CloseAllContainerWindows()
@@ -285,5 +319,37 @@ void UGaiaUIManagerSubsystem::OnInventoryUpdated()
 			Window->RefreshDebugInfo();
 		}
 	}
+}
+
+void UGaiaUIManagerSubsystem::OpenContainerByItemUID(const FGuid& ItemUID)
+{
+	// 获取库存子系统
+	UGaiaInventorySubsystem* InvSys = UGaiaInventorySubsystem::Get(this);
+	if (!InvSys)
+	{
+		UE_LOG(LogGaia, Warning, TEXT("OpenContainerByItemUID: InventorySubsystem not found"));
+		return;
+	}
+
+	// 查找物品
+	FGaiaItemInstance Item;
+	if (!InvSys->FindItemByUID(ItemUID, Item))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("OpenContainerByItemUID: Item not found: %s"), *ItemUID.ToString());
+		return;
+	}
+
+	// 检查物品是否有容器
+	if (!Item.HasContainer())
+	{
+		UE_LOG(LogGaia, Warning, TEXT("OpenContainerByItemUID: Item has no container: %s"), *ItemUID.ToString());
+		return;
+	}
+
+	// 打开容器
+	UE_LOG(LogGaia, Log, TEXT("Opening container from item: %s, container: %s"), 
+		*ItemUID.ToString(), *Item.OwnedContainerUID.ToString());
+	
+	OpenContainerWindow(Item.OwnedContainerUID);
 }
 

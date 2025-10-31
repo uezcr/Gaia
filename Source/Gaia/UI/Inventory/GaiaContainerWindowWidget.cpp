@@ -2,6 +2,7 @@
 #include "GaiaContainerGridWidget.h"
 #include "GaiaContainerDebugInfoWidget.h"
 #include "Gameplay/Inventory/GaiaInventorySubsystem.h"
+#include "UI/GaiaUIManagerSubsystem.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 #include "Components/Border.h"
@@ -33,9 +34,21 @@ void UGaiaContainerWindowWidget::NativeOnActivated()
 
 void UGaiaContainerWindowWidget::NativeOnDeactivated()
 {
-	UE_LOG(LogGaia, Verbose, TEXT("[容器窗口] 停用: %s"), *ContainerUID.ToString());
+	UE_LOG(LogGaia, Warning, TEXT("[容器窗口] ⭐ 停用: %s"), *ContainerUID.ToString());
 	
 	Super::NativeOnDeactivated();
+	
+	// 通知 UIManager 从映射表移除窗口
+	UGaiaUIManagerSubsystem* UIManager = UGaiaUIManagerSubsystem::Get(this);
+	if (UIManager)
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[容器窗口] 通知 UIManager 关闭窗口"));
+		UIManager->CloseContainerWindow(this);
+	}
+	else
+	{
+		UE_LOG(LogGaia, Error, TEXT("[容器窗口] ❌ 无法获取 UIManager，窗口可能无法正确清理"));
+	}
 }
 
 UWidget* UGaiaContainerWindowWidget::NativeGetDesiredFocusTarget() const

@@ -2,12 +2,16 @@
 
 #include "GaiaItemSlotWidget.h"
 #include "GaiaItemDragDropOperation.h"
+#include "GaiaItemContextMenu.h"
 #include "Gameplay/Inventory/GaiaInventorySubsystem.h"
+#include "Gameplay/Inventory/GaiaInventoryRPCComponent.h"
+#include "UI/GaiaUIManagerSubsystem.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
 #include "Components/Border.h"
 #include "Components/SizeBox.h"
 #include "GaiaLogChannels.h"
+#include "GameplayTagContainer.h"
 
 void UGaiaItemSlotWidget::NativeConstruct()
 {
@@ -68,32 +72,38 @@ FReply UGaiaItemSlotWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry,
 	UE_LOG(LogGaia, Log, TEXT("[物品槽位] MouseButtonDown: SlotID=%d, IsEmpty=%d, LeftButton=%d, RightButton=%d"),
 		SlotID, IsEmpty(), InMouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton), InMouseEvent.IsMouseButtonDown(EKeys::RightMouseButton));
 	
+	// 右键点击 - 显示上下文菜单
 	if (InMouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
 	{
-		// 右键点击
-		OnRightClick();
+		if (!IsEmpty())  // 只有非空槽位才显示菜单
+		{
+			ShowContextMenu(InMouseEvent.GetScreenSpacePosition());
+		}
 		return FReply::Handled();
 	}
 	
+	// 左键点击
 	if (InMouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
 	{
-		// 左键点击
+		// Shift + 左键 - 快速移动
 		if (InMouseEvent.IsShiftDown())
 		{
-			// Shift + 左键
 			OnShiftClick();
 			return FReply::Handled();
 		}
+		// Ctrl + 左键 - 拆分
 		else if (InMouseEvent.IsControlDown())
 		{
-			// Ctrl + 左键
 			OnCtrlClick();
 			return FReply::Handled();
 		}
 		
-		// 普通左键点击，可能触发拖动
-		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] DetectDrag: SlotID=%d, ItemUID=%s"), SlotID, *ItemUID.ToString());
-		return FReply::Handled().DetectDrag(TakeWidget(), EKeys::LeftMouseButton);
+		// 普通左键点击 - 可能触发拖动
+		if (!IsEmpty())  // 只有非空槽位才能拖动
+		{
+			UE_LOG(LogGaia, Log, TEXT("[物品槽位] DetectDrag: SlotID=%d, ItemUID=%s"), SlotID, *ItemUID.ToString());
+			return FReply::Handled().DetectDrag(TakeWidget(), EKeys::LeftMouseButton);
+		}
 	}
 	
 	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
@@ -199,19 +209,35 @@ void UGaiaItemSlotWidget::InitializeSlot(const FGuid& InContainerUID, int32 InSl
 
 void UGaiaItemSlotWidget::RefreshSlot()
 {
-	UGaiaInventorySubsystem* InvSys = UGaiaInventorySubsystem::Get(GetWorld());
-	if (!InvSys || !ContainerUID.IsValid())
+	if (!ContainerUID.IsValid())
 	{
-		UE_LOG(LogGaia, Verbose, TEXT("[物品槽位] RefreshSlot: InvSys或Container无效"));
+		UE_LOG(LogGaia, Verbose, TEXT("[物品槽位] RefreshSlot: Container无效"));
 		SetEmpty();
 		return;
 	}
 	
-	// 查找容器
-	FGaiaContainerInstance Container;
-	if (!InvSys->FindContainerByUID(ContainerUID, Container))
+	// 获取 RPC 组件（客户端使用缓存数据）
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 容器不存在: %s"), *ContainerUID.ToString());
+		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 无法获取 PlayerController"));
+		SetEmpty();
+		return;
+	}
+	
+	UGaiaInventoryRPCComponent* RPCComp = PC->FindComponentByClass<UGaiaInventoryRPCComponent>();
+	if (!RPCComp)
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 无法获取 RPC 组件"));
+		SetEmpty();
+		return;
+	}
+	
+	// 从 RPC 组件的缓存中获取容器数据
+	FGaiaContainerInstance Container;
+	if (!RPCComp->GetCachedContainer(ContainerUID, Container))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 容器不存在于缓存: %s"), *ContainerUID.ToString());
 		SetEmpty();
 		return;
 	}
@@ -242,11 +268,11 @@ void UGaiaItemSlotWidget::RefreshSlot()
 		return;
 	}
 	
-	// 获取物品实例
+	// 从 RPC 组件的缓存中获取物品数据
 	FGaiaItemInstance ItemInstance;
-	if (!InvSys->FindItemByUID(SlotInfo.ItemInstanceUID, ItemInstance))
+	if (!RPCComp->GetCachedItem(SlotInfo.ItemInstanceUID, ItemInstance))
 	{
-		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 物品不存在: %s"), *SlotInfo.ItemInstanceUID.ToString());
+		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 物品不存在于缓存: %s"), *SlotInfo.ItemInstanceUID.ToString());
 		SetEmpty();
 		return;
 	}
@@ -351,9 +377,9 @@ void UGaiaItemSlotWidget::SetDropTarget(bool bIsTarget)
 
 void UGaiaItemSlotWidget::OnRightClick_Implementation()
 {
-	UE_LOG(LogGaia, Log, TEXT("[物品槽位] 右键点击: Item=%s"), *ItemUID.ToString());
-	
-	// TODO: 显示右键菜单
+	// 注意：现在右键菜单由 ShowContextMenu 处理
+	// 这个函数保留是为了向后兼容和蓝图扩展
+	UE_LOG(LogGaia, Log, TEXT("[物品槽位] OnRightClick (Legacy): Item=%s"), *ItemUID.ToString());
 }
 
 void UGaiaItemSlotWidget::OnShiftClick_Implementation()
@@ -452,5 +478,115 @@ void UGaiaItemSlotWidget::LoadItemIcon(const FGaiaItemDefinition& ItemDef)
 		Image_Icon->SetVisibility(ESlateVisibility::Collapsed);
 		UE_LOG(LogGaia, Error, TEXT("[物品槽位] ❌ 无法加载图标: %s"), *ItemDefinitionID.ToString());
 	}
+}
+
+// ========================================
+// 右键菜单实现
+// ========================================
+
+void UGaiaItemSlotWidget::ShowContextMenu(FVector2D ScreenPosition)
+{
+	UE_LOG(LogGaia, Log, TEXT("[右键菜单] ShowContextMenu: SlotID=%d, ItemUID=%s, ScreenPos=(%.1f, %.1f)"),
+		SlotID, *ItemUID.ToString(), ScreenPosition.X, ScreenPosition.Y);
+
+	// 检查是否为空槽位
+	if (IsEmpty())
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[右键菜单] 槽位为空，取消显示菜单"));
+		return;
+	}
+
+	// 获取物品定义
+	FGaiaItemDefinition ItemDef;
+	if (!GetItemDefinition(ItemDef))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[右键菜单] 无法获取物品定义"));
+		return;
+	}
+
+	// 检查菜单类型 - 如果是None则不显示菜单
+	if (ItemDef.ContextMenuType == EItemContextMenuType::None)
+	{
+		UE_LOG(LogGaia, Log, TEXT("[右键菜单] 物品菜单类型为None，不显示菜单: %s"), *ItemDefinitionID.ToString());
+		return;
+	}
+
+	// 检查菜单类是否设置
+	if (!ContextMenuClass)
+	{
+		UE_LOG(LogGaia, Error, TEXT("[右键菜单] ContextMenuClass 未设置！请在 WBP_ItemSlot 蓝图中配置"));
+		return;
+	}
+
+	// 获取UIManager
+	UGaiaUIManagerSubsystem* UIManager = UGaiaUIManagerSubsystem::Get(this);
+	if (!UIManager)
+	{
+		UE_LOG(LogGaia, Error, TEXT("[右键菜单] 无法获取 UIManager！菜单无法显示"));
+		return;
+	}
+
+	// 捕获变量用于Lambda
+	FGuid CapturedItemUID = ItemUID;
+	FGaiaItemDefinition CapturedItemDef = ItemDef;
+	FVector2D CapturedScreenPos = ScreenPosition;
+
+	UE_LOG(LogGaia, Log, TEXT("[右键菜单] 使用CommonUI方式创建菜单..."));
+
+	// 使用CommonUI的正确方式：让Layer创建Widget，在回调中初始化
+	UGaiaItemContextMenu* ContextMenu = UIManager->PushWidgetToLayerWithInit<UGaiaItemContextMenu>(
+		FGameplayTag::RequestGameplayTag(TEXT("UI.Layer.Menu")),
+		ContextMenuClass,
+		[CapturedItemUID, CapturedItemDef, CapturedScreenPos](UGaiaItemContextMenu& Menu)
+		{
+			// 在Widget创建后、激活前初始化
+			Menu.InitializeMenu(CapturedItemUID, CapturedItemDef);
+			Menu.SetMenuPosition(CapturedScreenPos);
+		}
+	);
+
+	if (ContextMenu)
+	{
+		UE_LOG(LogGaia, Log, TEXT("[右键菜单] 菜单创建并推送成功"));
+	}
+	else
+	{
+		UE_LOG(LogGaia, Error, TEXT("[右键菜单] 菜单创建失败"));
+	}
+}
+
+bool UGaiaItemSlotWidget::GetItemDefinition(FGaiaItemDefinition& OutItemDef) const
+{
+	if (IsEmpty())
+	{
+		return false;
+	}
+
+	// 从库存子系统获取物品
+	UGaiaInventorySubsystem* InvSys = UGaiaInventorySubsystem::Get(GetWorld());
+	if (!InvSys)
+	{
+		UE_LOG(LogGaia, Error, TEXT("[物品槽位] 无法获取 InventorySubsystem"));
+		return false;
+	}
+
+	FGaiaItemInstance Item;
+	if (!InvSys->FindItemByUID(ItemUID, Item))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 无法找到物品: %s"), *ItemUID.ToString());
+		return false;
+	}
+
+	// 获取物品定义
+	if (!UGaiaInventorySubsystem::GetItemDefinition(Item.ItemDefinitionID, OutItemDef))
+	{
+		UE_LOG(LogGaia, Warning, TEXT("[物品槽位] 无法获取物品定义: %s"), *Item.ItemDefinitionID.ToString());
+		return false;
+	}
+
+	UE_LOG(LogGaia, Verbose, TEXT("[物品槽位] 成功获取物品定义: %s, MenuType=%d"),
+		*Item.ItemDefinitionID.ToString(), (int32)OutItemDef.ContextMenuType);
+
+	return true;
 }
 

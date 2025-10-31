@@ -44,8 +44,7 @@ public:
 	UE_API virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	UE_API virtual void Deinitialize() override;
 	//~ End USubsystem Interface
-
-public:
+	
 	//~BEGIN 静态辅助函数
 	
 	/** 获取库存子系统实例 */
@@ -53,8 +52,7 @@ public:
 	static UE_API UGaiaInventorySubsystem* Get(const UObject* WorldContextObject);
 	
 	//~END 静态辅助函数
-
-public:
+	
 	//~BEGIN 数据定义获取
 	
 	/** 获取物品定义 */
@@ -66,28 +64,17 @@ public:
 	static UE_API bool GetContainerDefinition(FName ContainerDefID, FGaiaContainerDefinition& OutContainerDef);
 	
 	//~END 数据定义获取
-
+	
 	//~BEGIN 实例创建
 	
 	/** 创建物品实例 */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
 	UE_API FGaiaItemInstance CreateItemInstance(FName ItemDefID, int32 Quantity = 1);
 	
 	/** 创建容器实例 */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
-	UE_API FGuid CreateContainer(FName ContainerDefID);
-	
-	/**
-	 * 创建容器实例并注册所有者
-	 * @param ContainerDefID 容器定义ID
-	 * @param OwnerPlayerController 容器所有者（可为空，为空则不注册所有者）
-	 * @return 容器UID
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
-	UE_API FGuid CreateContainerForPlayer(FName ContainerDefID, APlayerController* OwnerPlayerController);
+	UE_API FGuid CreateContainerInstance(FName ContainerDefID);
 	
 	//~END 实例创建
-
+	
 	//~BEGIN 调试辅助
 	
 	/** 设置物品的调试显示名称 */
@@ -101,125 +88,11 @@ public:
 	//~BEGIN 网络/多人游戏支持
 	
 	/**
-	 * 尝试让玩家打开世界容器
-	 * @param PlayerController 玩家控制器
-	 * @param ContainerUID 容器UID
-	 * @param OutErrorMessage 失败时的错误消息
-	 * @return 是否成功打开
-	 */
-	UE_API bool TryOpenWorldContainer(APlayerController* PlayerController, const FGuid& ContainerUID, FString& OutErrorMessage);
-	
-	/**
-	 * 玩家关闭世界容器
-	 * @param PlayerController 玩家控制器
-	 * @param ContainerUID 容器UID
-	 */
-	UE_API void CloseWorldContainer(APlayerController* PlayerController, const FGuid& ContainerUID);
-	
-	/**
-	 * 获取正在访问指定容器的玩家
-	 * @param ContainerUID 容器UID
-	 * @return 玩家控制器，如果无人访问则返回nullptr
-	 */
-	UE_API APlayerController* GetContainerAccessor(const FGuid& ContainerUID) const;
-	
-	/**
-	 * 检查容器是否被占用
-	 * @param ContainerUID 容器UID
-	 * @return 是否有玩家正在访问
-	 */
-	UE_API bool IsContainerOccupied(const FGuid& ContainerUID) const;
-	
-	/**
 	 * 广播容器更新给所有相关玩家
-	 * 自动找到所有拥有或正在访问该容器的玩家，并通知他们刷新数据
+	 * 通知所有客户端刷新数据
 	 * @param ContainerUID 发生变化的容器UID
 	 */
 	UE_API void BroadcastContainerUpdate(const FGuid& ContainerUID);
-	
-	/**
-	 * 获取所有拥有指定容器的玩家
-	 * @param ContainerUID 容器UID
-	 * @return 拥有该容器的玩家列表
-	 */
-	UE_API TArray<APlayerController*> GetContainerOwners(const FGuid& ContainerUID) const;
-	
-	/**
-	 * 注册容器所有者（用于玩家背包等私有容器）
-	 * @param PlayerController 玩家控制器
-	 * @param ContainerUID 容器UID
-	 */
-	UE_API void RegisterContainerOwner(APlayerController* PlayerController, const FGuid& ContainerUID);
-	
-	/**
-	 * 注销容器所有者
-	 * @param PlayerController 玩家控制器
-	 * @param ContainerUID 容器UID
-	 */
-	UE_API void UnregisterContainerOwner(APlayerController* PlayerController, const FGuid& ContainerUID);
-
-	// ========================================
-	// 权限和所有权管理
-	// ========================================
-
-	/**
-	 * 获取玩家的唯一UID
-	 * @param PlayerController 玩家控制器
-	 * @return 玩家的唯一标识符（从PlayerState获取）
-	 */
-	UE_API static FGuid GetPlayerUID(APlayerController* PlayerController);
-
-	/**
-	 * 设置容器的所有权类型
-	 * @param ContainerUID 容器UID
-	 * @param OwnershipType 所有权类型
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory|Ownership")
-	UE_API void SetContainerOwnershipType(const FGuid& ContainerUID, EContainerOwnershipType OwnershipType);
-
-	/**
-	 * 获取容器的所有权类型
-	 * @param ContainerUID 容器UID
-	 * @return 所有权类型
-	 */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory|Ownership")
-	UE_API EContainerOwnershipType GetContainerOwnershipType(const FGuid& ContainerUID) const;
-
-	/**
-	 * 授权玩家访问共享容器
-	 * @param ContainerUID 容器UID
-	 * @param PlayerController 要授权的玩家
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory|Ownership")
-	UE_API void AuthorizePlayerAccess(const FGuid& ContainerUID, APlayerController* PlayerController);
-
-	/**
-	 * 取消玩家访问共享容器的授权
-	 * @param ContainerUID 容器UID
-	 * @param PlayerController 要取消授权的玩家
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory|Ownership")
-	UE_API void RevokePlayerAccess(const FGuid& ContainerUID, APlayerController* PlayerController);
-
-	/**
-	 * 检查玩家是否可以访问指定容器
-	 * @param PlayerController 玩家控制器
-	 * @param ContainerUID 容器UID
-	 * @param OutErrorMessage 如果无法访问，返回错误消息
-	 * @return 是否可以访问
-	 */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory|Ownership")
-	UE_API bool CanPlayerAccessContainer(APlayerController* PlayerController, const FGuid& ContainerUID, FString& OutErrorMessage) const;
-
-	/**
-	 * 检查玩家是否可以操作指定物品
-	 * @param PlayerController 玩家控制器
-	 * @param ItemUID 物品UID
-	 * @param OutErrorMessage 如果无法操作，返回错误消息
-	 * @return 是否可以操作
-	 */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory|Ownership")
-	UE_API bool CanPlayerAccessItem(APlayerController* PlayerController, const FGuid& ItemUID, FString& OutErrorMessage) const;
 
 	/**
 	 * 获取容器的调试信息（用于UI显示）
@@ -245,34 +118,26 @@ public:
 
 	//~BEGIN 容器操作
 	
-	/** 添加物品到容器 */
+	/** 
+	 * 尝试添加物品到容器（带详细检查和错误信息）
+	 * @param ItemUID 要添加的物品UID
+	 * @param ContainerUID 目标容器UID
+	 * @return 添加结果（包含成功/失败、错误信息、槽位ID等）
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
-	UE_API bool AddItemToContainer(const FGaiaItemInstance& Item, const FGuid& ContainerUID);
+	UE_API FAddItemResult TryAddItemToContainer(const FGuid& ItemUID, const FGuid& ContainerUID);
 	
-	/** 从容器移除物品（设为游离状态，不删除物品） */
+	/** 
+     * 尝试移动物品到指定容器和槽位（带检查）
+     * @param ItemUID 要移动的物品UID
+     * @param TargetContainerUID 目标容器UID
+     * @param TargetSlotID 目标槽位ID（-1表示自动分配）
+     * @param Quantity 移动数量（-1表示全部移动）
+     * @return 移动结果（包含成功/失败、错误信息等）
+     */
 	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
-	UE_API bool RemoveItemFromContainer(const FGuid& ItemUID);
-	
-	/** 删除物品（完全从系统中移除） */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
-	UE_API bool DestroyItem(const FGuid& ItemUID);
-	
-	/** 检查是否可以添加物品到容器 */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
-	UE_API bool CanAddItemToContainer(const FGaiaItemInstance& Item, const FGuid& ContainerUID) const;
-	
-	//~END 容器操作
+	UE_API FMoveItemResult TryMoveItem(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 TargetSlotID = -1, int32 Quantity = -1);
 
-	//~BEGIN 物品移动
-	
-	/** 移动物品到指定容器和槽位 */
-	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
-	UE_API FMoveItemResult MoveItem(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 TargetSlotID = -1, int32 Quantity = -1);
-	
-	/** 检查是否可以移动物品到指定位置 */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
-	UE_API bool CanMoveItem(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 TargetSlotID = -1, int32 Quantity = -1);
-	
 	/** 快速移动物品（移动全部数量） */
 	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
 	UE_API FMoveItemResult QuickMoveItem(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 TargetSlotID = -1);
@@ -280,35 +145,16 @@ public:
 	/** 拆分移动物品（移动指定数量） */
 	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
 	UE_API FMoveItemResult SplitItem(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 Quantity, int32 TargetSlotID = -1);
-	
-	//~END 物品移动
 
-	//~BEGIN 嵌套检测
+	/** 从容器移除物品（设为游离状态，不删除物品） */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
+	UE_API bool RemoveItemFromContainer(const FGuid& ItemUID);
 	
-	/** 检查是否会造成循环引用 */
-	UE_API bool WouldCreateCycle(const FGuid& ItemContainerUID, const FGuid& TargetContainerUID) const;
-	
-	//~END 嵌套检测
+	/** 删除物品（完全从系统中移除） */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|Inventory")
+	UE_API bool DestroyItem(const FGuid& ItemUID);
 
-	//~BEGIN 体积/重量计算
-	
-	/** 获取物品总体积（含内容物） */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
-	UE_API int32 GetItemTotalVolume(const FGaiaItemInstance& Item) const;
-	
-	/** 获取物品总重量（含内容物） */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
-	UE_API int32 GetItemTotalWeight(const FGaiaItemInstance& Item) const;
-	
-	/** 获取容器已使用体积 */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
-	UE_API int32 GetContainerUsedVolume(const FGuid& ContainerUID) const;
-	
-	/** 获取容器已使用重量 */
-	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
-	UE_API int32 GetContainerUsedWeight(const FGuid& ContainerUID) const;
-	
-	//~END 体积/重量计算
+	//~END 容器操作
 
 	//~BEGIN 数据验证
 	
@@ -322,6 +168,140 @@ public:
 	
 	//~END 数据验证
 
+	/** 获取物品总体积（含内容物） */
+	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
+	static UE_API int32 GetItemTotalVolume(const FGaiaItemInstance& Item);
+	
+	/** 获取物品总重量（含内容物） */
+	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
+	UE_API int32 GetItemTotalWeight(const FGaiaItemInstance& Item) const;
+	
+	/** 获取容器已使用体积 */
+	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
+	UE_API int32 GetContainerUsedVolume(const FGuid& ContainerUID) const;
+	
+	/** 获取容器已使用重量 */
+	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
+	UE_API int32 GetContainerUsedWeight(const FGuid& ContainerUID) const;
+
+private:
+	//~BEGIN 容器操作辅助函数
+	
+	/** 
+     * 检查是否可以添加物品到容器（优化版本 - 直接使用指针）
+     * @param Item 物品指针（非空，已验证）
+     * @param Container 容器指针（非空，已验证）
+     * @return 是否可以添加
+     */
+	UE_API FAddItemResult CanAddItemToContainer(FGaiaItemInstance* Item, FGaiaContainerInstance* Container) const;
+	
+	/** 
+	 * 添加物品到容器（内部函数，不做检查，直接操作指针）
+	 * @warning 仅在 TryAddItemToContainer 内部调用，已通过所有检查
+	 * @param Item 物品指针（非空，已验证）
+	 * @param Container 容器指针（非空，已验证）
+	 * @param SlotID 目标槽位
+	 * @return 是否成功添加
+	 */
+	UE_API bool AddItemToContainer(FGaiaItemInstance* Item, FGaiaContainerInstance* Container, const int32 SlotID = INDEX_NONE);
+
+	/** 
+     * 检查是否可以交换物品（优化版本 - 直接使用指针）
+     * @param Item1 第一个物品指针（非空，已验证）
+     * @param Item2 第二个物品指针（非空，已验证）
+     * @return 交换检查结果（包含详细错误信息）
+     */
+	UE_API FMoveItemResult CanSwapItems(FGaiaItemInstance* Item1, FGaiaItemInstance* Item2) const;
+	
+	/** 
+	 * 交换两个物品的位置（内部函数，不做检查，直接操作指针）
+	 * @warning 仅在 TrySwapItems 内部调用，已通过所有检查
+	 * @param Item1 第一个物品指针（非空，已验证）
+	 * @param Item2 第二个物品指针（非空，已验证）
+	 * @return 是否成功交换
+	 */
+	UE_API bool SwapItems(FGaiaItemInstance* Item1, FGaiaItemInstance* Item2);
+
+	/** 
+	 * 堆叠物品（内部函数，不做检查，直接操作指针）
+	 * @warning 仅在内部调用，已通过所有检查
+	 * @param SourceItem 源物品指针（非空，已验证）
+	 * @param TargetItem 目标物品指针（非空，已验证）
+	 * @param Quantity 堆叠数量（已验证）
+	 * @return 堆叠结果
+	 */
+	UE_API FMoveItemResult StackItems(FGaiaItemInstance* SourceItem, FGaiaItemInstance* TargetItem, int32 Quantity);
+
+	/** 
+	 * 移动物品到另一个物品的容器中（内部函数，不做检查，直接操作指针）
+	 * @warning 仅在内部调用，已通过所有检查
+	 * @param Item 要移动的物品指针（非空，已验证）
+	 * @param ContainerItem 容器物品指针（非空，已验证，HasContainer()为true）
+	 * @param Quantity 移动数量（已验证）
+	 * @return 移动结果
+	 */
+	UE_API FMoveItemResult MoveToItemContainer(FGaiaItemInstance* Item, FGaiaItemInstance* ContainerItem, int32 Quantity);
+
+	/** 
+     * 移动物品到指定容器和槽位（内部函数，不做检查，只做路由）
+     * @warning 仅在 TryMoveItem 内部调用，已通过所有检查
+     * @param Item 要移动的物品指针（非空，已验证）
+     * @param TargetContainer 目标容器指针（非空，已验证）
+     * @param TargetSlotID 目标槽位ID（-1表示自动分配）
+     * @param Quantity 移动数量（已验证）
+     * @return 移动结果
+     */
+	UE_API FMoveItemResult MoveItem(FGaiaItemInstance* Item, FGaiaContainerInstance* TargetContainer, int32 TargetSlotID, int32 Quantity);
+
+	/** 
+	 * 直接移动物品到空槽位（内部函数，不做检查）
+	 * @warning 仅在 MoveItem 内部调用，已通过所有检查
+	 * @param Item 源物品指针（非空，已验证）
+	 * @param TargetContainer 目标容器指针（非空，已验证）
+	 * @param TargetSlotID 目标槽位ID（已验证有效且为空）
+	 * @param Quantity 移动数量（已验证）
+	 * @return 移动结果
+	 */
+	UE_API FMoveItemResult MoveToEmptySlot(FGaiaItemInstance* Item, FGaiaContainerInstance* TargetContainer, int32 TargetSlotID, int32 Quantity);
+	
+	/** 
+	 * 容器内移动物品（内部函数，不做检查，直接操作指针）
+	 * @warning 仅在内部调用，已通过所有检查
+	 * @param Item 源物品指针（非空，已验证，在容器中）
+	 * @param TargetSlotID 目标槽位ID（已验证有效）
+	 * @param Quantity 移动数量（已验证）
+	 * @return 移动结果
+	 */
+	UE_API FMoveItemResult MoveItemWithinContainer(FGaiaItemInstance* Item, int32 TargetSlotID, int32 Quantity);
+	
+	/** 
+	 * 处理目标槽位有物品的情况（内部函数，不做检查，直接操作指针）
+	 * @warning 仅在内部调用，已通过所有检查
+	 * @param SourceItem 源物品指针（非空，已验证）
+	 * @param TargetItem 目标物品指针（非空，已验证）
+	 * @param TargetContainer 目标容器指针（非空，已验证）
+	 * @param TargetSlotID 目标槽位ID（已验证有效）
+	 * @param Quantity 移动数量（已验证）
+	 * @return 移动结果
+	 */
+	UE_API FMoveItemResult ProcessTargetSlotWithItem(FGaiaItemInstance* SourceItem, FGaiaItemInstance* TargetItem, FGaiaContainerInstance* TargetContainer, int32 TargetSlotID, int32 Quantity);
+
+	/** 
+     * 自动分配槽位移动（内部函数，不做检查，直接操作指针）
+     * @warning 仅在内部调用，已通过所有检查
+     * @param Item 源物品指针（非空，已验证）
+     * @param TargetContainer 目标容器指针（非空，已验证）
+     * @param Quantity 移动数量（已验证）
+     * @return 移动结果
+     */
+	UE_API FMoveItemResult MoveItemAutoSlot(FGaiaItemInstance* Item, FGaiaContainerInstance* TargetContainer, int32 Quantity);
+
+	//~END 容器操作辅助函数
+
+	/** 检查是否会造成循环引用 */
+	UE_API bool WouldCreateCycle(const FGuid& ItemContainerUID, const FGuid& TargetContainerUID) const;
+
+public:
 	//~BEGIN 查询辅助
 	
 	/** 获取容器中的所有物品 */
@@ -331,6 +311,9 @@ public:
 	/** 获取所有游离物品（不在任何容器中） */
 	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
 	UE_API TArray<FGaiaItemInstance> GetOrphanItems() const;
+
+	/** 获取所有容器 */
+	UE_API void GetAllContainers(TArray<FGaiaContainerInstance>& OutContainers) const;
 	
 	/** 统计全局指定类型物品的总数量 */
 	UFUNCTION(BlueprintPure, Category = "Gaia|Inventory")
@@ -346,42 +329,6 @@ private:
 	/** 所有容器实例的映射表（FGuid -> 容器实例） */
 	UPROPERTY()
 	TMap<FGuid, FGaiaContainerInstance> Containers;
-	
-	/** 世界容器访问者映射（容器UID -> 正在访问的玩家）- 一个容器同时只能有一个玩家打开 */
-	UPROPERTY()
-	TMap<FGuid, TObjectPtr<APlayerController>> WorldContainerAccessors;
-	
-	/** 容器所有者映射（容器UID -> 所有者玩家）- 用于玩家背包等私有容器 */
-	UPROPERTY()
-	TMap<FGuid, TObjectPtr<APlayerController>> ContainerOwnerMap;
-	
-	//~BEGIN 移动辅助函数
-	
-	/** 尝试堆叠物品 */
-	FMoveItemResult TryStackItems(const FGuid& SourceItemUID, const FGuid& TargetItemUID, int32 Quantity);
-	
-	/** 尝试将物品放入目标物品的容器 */
-	FMoveItemResult TryMoveToContainer(const FGuid& ItemUID, const FGuid& ContainerItemUID, int32 Quantity);
-	
-	/** 交换两个物品的位置 */
-	FMoveItemResult SwapItems(const FGuid& ItemUID1, const FGuid& ItemUID2);
-	
-	/** 检查是否可以交换物品 */
-	bool CanSwapItems(const FGuid& ItemUID1, const FGuid& ItemUID2);
-	
-	/** 直接移动物品到空槽位 */
-	FMoveItemResult MoveToEmptySlot(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 TargetSlotID, int32 Quantity);
-	
-	/** 容器内移动物品 */
-	FMoveItemResult MoveItemWithinContainer(const FGuid& ItemUID, int32 TargetSlotID, int32 Quantity);
-	
-	/** 处理目标槽位有物品的情况 */
-	FMoveItemResult ProcessTargetSlotWithItem(const FGuid& ItemUID, const FGaiaItemInstance& TargetItem, const FGuid& TargetContainerUID, int32 TargetSlotID, int32 Quantity);
-	
-	/** 自动分配槽位移动 */
-	FMoveItemResult MoveItemAutoSlot(const FGuid& ItemUID, const FGuid& TargetContainerUID, int32 Quantity);
-	
-	//~END 移动辅助函数
 };
 
 #undef UE_API

@@ -27,23 +27,70 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnContainerClosed, const FGuid&, Co
 // ========================================
 
 /**
- * 容器所有权类型
- * 定义容器的访问控制模式
+ * 物品右键菜单类型
+ * 定义不同类型物品的默认菜单配置
  */
 UENUM(BlueprintType)
-enum class EContainerOwnershipType : uint8
+enum class EItemContextMenuType : uint8
 {
-	/** 私有容器 - 只有所有者可以访问（玩家背包、装备栏） */
-	Private UMETA(DisplayName = "Private"),
+	/** 无菜单 */
+	None UMETA(DisplayName = "None"),
 	
-	/** 世界容器 - 任何人都可以访问，但同时只能一人打开（野外箱子、宝箱） */
-	World UMETA(DisplayName = "World"),
+	/** 消耗品 - 使用、丢弃、销毁 */
+	Consumable UMETA(DisplayName = "Consumable"),
 	
-	/** 共享容器 - 有所有者，可以授权其他人访问（房屋箱子、公会仓库） */
-	Shared UMETA(DisplayName = "Shared"),
+	/** 装备 - 装备、丢弃、销毁 */
+	Equipment UMETA(DisplayName = "Equipment"),
 	
-	/** 交易容器 - 临时容器，用于玩家间交易 */
-	Trade UMETA(DisplayName = "Trade")
+	/** 容器 - 打开、清空、丢弃 */
+	Container UMETA(DisplayName = "Container"),
+	
+	/** 材料 - 拆分、丢弃、销毁 */
+	Material UMETA(DisplayName = "Material"),
+	
+	/** 任务物品 - 查看详情 */
+	QuestItem UMETA(DisplayName = "Quest Item"),
+	
+	/** 自定义 - 使用自定义菜单配置 */
+	Custom UMETA(DisplayName = "Custom")
+};
+
+/**
+ * 菜单操作类型
+ * 定义右键菜单中可执行的操作
+ */
+UENUM(BlueprintType)
+enum class EItemContextAction : uint8
+{
+	/** 使用物品 */
+	Use UMETA(DisplayName = "Use"),
+	
+	/** 装备物品 */
+	Equip UMETA(DisplayName = "Equip"),
+	
+	/** 卸下装备 */
+	Unequip UMETA(DisplayName = "Unequip"),
+	
+	/** 打开容器 */
+	OpenContainer UMETA(DisplayName = "Open Container"),
+	
+	/** 清空容器 */
+	EmptyContainer UMETA(DisplayName = "Empty Container"),
+	
+	/** 拆分物品 */
+	Split UMETA(DisplayName = "Split"),
+	
+	/** 丢弃物品 */
+	Drop UMETA(DisplayName = "Drop"),
+	
+	/** 销毁物品 */
+	Destroy UMETA(DisplayName = "Destroy"),
+	
+	/** 查看详情 */
+	Inspect UMETA(DisplayName = "Inspect"),
+	
+	/** 自定义操作 */
+	Custom UMETA(DisplayName = "Custom")
 };
 
 /**
@@ -55,6 +102,7 @@ enum class EMoveItemResult : uint8
 	Success,                    // 完全成功
 	PartialSuccess,            // 部分成功（部分堆叠）
 	Failed,                    // 完全失败
+	InvalidDefinition,         // 无效定义
 	InvalidTarget,             // 目标无效
 	VolumeExceeded,            // 体积超限
 	CycleDetected,             // 循环引用
@@ -66,8 +114,85 @@ enum class EMoveItemResult : uint8
 };
 
 /**
- * 移动物品操作的结果
+ * 菜单项配置
+ * 定义单个右键菜单项的显示和行为
  */
+USTRUCT(BlueprintType)
+struct FItemContextMenuItem
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	/** 菜单操作类型 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Context Menu")
+	EItemContextAction Action = EItemContextAction::Use;
+
+	/** 显示文本（如果为空，使用默认文本） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Context Menu")
+	FText DisplayText;
+
+	/** 图标（可选） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Context Menu")
+	TSoftObjectPtr<UTexture2D> Icon;
+
+	/** 是否启用 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Context Menu")
+	bool bEnabled = true;
+
+	/** 自定义事件名（当Action为Custom时使用） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Context Menu")
+	FName CustomEventName;
+};
+
+/**
+ * 添加物品操作的结果
+ */
+USTRUCT(BlueprintType)
+struct FAddItemResult
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	/** 结果 */
+	UPROPERTY(BlueprintReadOnly, Category = "Add Result")
+	EMoveItemResult ResultType = EMoveItemResult::Failed;
+
+	/** 详细错误信息 */
+	UPROPERTY(BlueprintReadOnly, Category = "Add Result")
+	FString ErrorMessage;
+
+	/** 实际添加到的槽位ID */
+	UPROPERTY(BlueprintReadOnly, Category = "Add Result")
+	int32 SlotID = INDEX_NONE;
+
+	/** 构造函数 */
+	FAddItemResult() = default;
+	
+	explicit FAddItemResult(EMoveItemResult InResult, const FString& InErrorMessage = TEXT(""), int32 InSlotID = INDEX_NONE)
+		: ResultType(InResult)
+		, ErrorMessage(InErrorMessage)
+		, SlotID(InSlotID)
+	{}
+
+	/** 创建成功结果 */
+	static FAddItemResult Success(int32 InSlotID)
+	{
+		return FAddItemResult(EMoveItemResult::Success, TEXT(""), InSlotID);
+	}
+
+	/** 创建失败结果 */
+	static FAddItemResult Failure(const FString& InErrorMessage)
+	{
+		return FAddItemResult(EMoveItemResult::Failed, InErrorMessage, INDEX_NONE);
+	}
+
+	bool IsSuccess() const
+	{
+		return ResultType == EMoveItemResult::Success;
+	}
+};
+
+/** 移动物品结果 */
 USTRUCT(BlueprintType)
 struct FMoveItemResult
 {
@@ -187,6 +312,14 @@ public:
 	/** 容器定义ID（如果有容器） */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Container", meta = (EditCondition = "bHasContainer"))
 	FName ContainerDefinitionID = NAME_None;
+
+	/** 右键菜单类型 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	EItemContextMenuType ContextMenuType = EItemContextMenuType::Material;
+
+	/** 自定义菜单项（仅当ContextMenuType为Custom时使用） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI", meta = (EditCondition = "ContextMenuType == EItemContextMenuType::Custom"))
+	TArray<FItemContextMenuItem> CustomMenuItems;
 
 public:
 	FGaiaItemDefinition()
@@ -467,18 +600,6 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Debug")
 	FString DebugDisplayName;
 
-	// ========================================
-	// 所有权和权限控制
-	// ========================================
-
-	/** 容器所有权类型 */
-	UPROPERTY(BlueprintReadWrite, Category = "Ownership")
-	EContainerOwnershipType OwnershipType = EContainerOwnershipType::World;
-
-	/** 授权访问的玩家UID列表（仅用于Shared类型容器） */
-	UPROPERTY(BlueprintReadWrite, Category = "Ownership")
-	TArray<FGuid> AuthorizedPlayerUIDs;
-
 public:
 	FGaiaContainerInstance()
 		: ContainerUID()
@@ -489,7 +610,6 @@ public:
 		, CachedTotalVolume(0)
 		, bNeedRecalculate(true)
 		, DebugDisplayName(TEXT(""))
-		, OwnershipType(EContainerOwnershipType::World)
 	{
 	}
 
@@ -553,33 +673,6 @@ public:
 	FString GetShortUID() const
 	{
 		return ContainerUID.ToString().Left(8);
-	}
-
-	/** 检查玩家UID是否在授权列表中 */
-	bool IsPlayerAuthorized(const FGuid& PlayerUID) const
-	{
-		return AuthorizedPlayerUIDs.Contains(PlayerUID);
-	}
-
-	/** 添加授权玩家 */
-	void AddAuthorizedPlayer(const FGuid& PlayerUID)
-	{
-		if (!AuthorizedPlayerUIDs.Contains(PlayerUID))
-		{
-			AuthorizedPlayerUIDs.Add(PlayerUID);
-		}
-	}
-
-	/** 移除授权玩家 */
-	void RemoveAuthorizedPlayer(const FGuid& PlayerUID)
-	{
-		AuthorizedPlayerUIDs.Remove(PlayerUID);
-	}
-
-	/** 清空所有授权 */
-	void ClearAuthorizedPlayers()
-	{
-		AuthorizedPlayerUIDs.Empty();
 	}
 };
 
@@ -670,22 +763,6 @@ struct FContainerUIDebugInfo
 	/** 容器定义ID */
 	UPROPERTY(BlueprintReadOnly)
 	FName ContainerDefID = NAME_None;
-	
-	/** 所有权类型 */
-	UPROPERTY(BlueprintReadOnly)
-	EContainerOwnershipType OwnershipType = EContainerOwnershipType::World;
-	
-	/** 所有者玩家名称 */
-	UPROPERTY(BlueprintReadOnly)
-	FString OwnerPlayerName;
-	
-	/** 授权玩家列表 */
-	UPROPERTY(BlueprintReadOnly)
-	TArray<FString> AuthorizedPlayerNames;
-	
-	/** 当前访问者 */
-	UPROPERTY(BlueprintReadOnly)
-	FString CurrentAccessorName;
 	
 	/** 槽位使用情况 */
 	UPROPERTY(BlueprintReadOnly)

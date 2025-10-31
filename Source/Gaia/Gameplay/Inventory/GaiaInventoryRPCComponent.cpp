@@ -160,27 +160,8 @@ void UGaiaInventoryRPCComponent::ServerMoveItem_Implementation(
 		return;
 	}
 
-	// 权限检查：检查是否可以访问源物品
-	FString PermissionError;
-	if (!InventorySystem->CanPlayerAccessItem(PC, ItemUID, PermissionError))
-	{
-		UE_LOG(LogGaia, Warning, TEXT("[网络权限] 玩家 %s 尝试移动物品 %s 失败: %s"),
-			*PC->GetName(), *ItemUID.ToString(), *PermissionError);
-		ClientOperationFailed(403, PermissionError);
-		return;
-	}
-
-	// 权限检查：检查是否可以访问目标容器
-	if (!InventorySystem->CanPlayerAccessContainer(PC, TargetContainerUID, PermissionError))
-	{
-		UE_LOG(LogGaia, Warning, TEXT("[网络权限] 玩家 %s 尝试移动物品到容器 %s 失败: %s"),
-			*PC->GetName(), *TargetContainerUID.ToString(), *PermissionError);
-		ClientOperationFailed(403, PermissionError);
-		return;
-	}
-
 	// 执行移动
-	FMoveItemResult Result = InventorySystem->MoveItem(ItemUID, TargetContainerUID, TargetSlotID, Quantity);
+	FMoveItemResult Result = InventorySystem->TryMoveItem(ItemUID, TargetContainerUID, TargetSlotID, Quantity);
 
 	if (Result.IsSuccess())
 	{
@@ -233,16 +214,6 @@ void UGaiaInventoryRPCComponent::ServerAddItem_Implementation(
 		return;
 	}
 
-	// 权限检查：检查是否可以访问目标容器
-	FString PermissionError;
-	if (!InventorySystem->CanPlayerAccessContainer(PC, ContainerUID, PermissionError))
-	{
-		UE_LOG(LogGaia, Warning, TEXT("[网络权限] 玩家 %s 尝试添加物品到容器 %s 失败: %s"),
-			*PC->GetName(), *ContainerUID.ToString(), *PermissionError);
-		ClientOperationFailed(403, PermissionError);
-		return;
-	}
-
 	// 查找物品
 	FGaiaItemInstance Item;
 	if (!InventorySystem->FindItemByUID(ItemUID, Item))
@@ -252,7 +223,8 @@ void UGaiaInventoryRPCComponent::ServerAddItem_Implementation(
 	}
 
 	// 添加到容器
-	if (InventorySystem->AddItemToContainer(Item, ContainerUID))
+	FAddItemResult AddResult = InventorySystem->TryAddItemToContainer(Item.InstanceUID, ContainerUID);
+	if (AddResult.IsSuccess())
 	{
 		UE_LOG(LogGaia, Log, TEXT("[网络] 添加物品成功: %s -> 容器 %s"), 
 			*ItemUID.ToString(), *ContainerUID.ToString());
@@ -285,16 +257,6 @@ void UGaiaInventoryRPCComponent::ServerRemoveItem_Implementation(const FGuid& It
 	APlayerController* PC = GetOwningPlayerController();
 	if (!PC)
 	{
-		return;
-	}
-
-	// 权限检查：检查是否可以访问该物品
-	FString PermissionError;
-	if (!InventorySystem->CanPlayerAccessItem(PC, ItemUID, PermissionError))
-	{
-		UE_LOG(LogGaia, Warning, TEXT("[网络权限] 玩家 %s 尝试移除物品 %s 失败: %s"),
-			*PC->GetName(), *ItemUID.ToString(), *PermissionError);
-		ClientOperationFailed(403, PermissionError);
 		return;
 	}
 
@@ -342,16 +304,6 @@ void UGaiaInventoryRPCComponent::ServerDestroyItem_Implementation(const FGuid& I
 		return;
 	}
 
-	// 权限检查：检查是否可以访问该物品
-	FString PermissionError;
-	if (!InventorySystem->CanPlayerAccessItem(PC, ItemUID, PermissionError))
-	{
-		UE_LOG(LogGaia, Warning, TEXT("[网络权限] 玩家 %s 尝试销毁物品 %s 失败: %s"),
-			*PC->GetName(), *ItemUID.ToString(), *PermissionError);
-		ClientOperationFailed(403, PermissionError);
-		return;
-	}
-	
 	// 先获取物品所在容器
 	FGaiaItemInstance Item;
 	FGuid SourceContainerUID;
@@ -390,18 +342,11 @@ void UGaiaInventoryRPCComponent::ServerOpenWorldContainer_Implementation(const F
 		return;
 	}
 
-	APlayerController* PC = GetOwningPlayerController();
-	if (!PC)
+	// 检查容器是否存在
+	FGaiaContainerInstance Container;
+	if (!InventorySystem->FindContainerByUID(ContainerUID, Container))
 	{
-		return;
-	}
-
-	// 尝试打开世界容器（Subsystem 会检查是否被占用）
-	FString ErrorMessage;
-	if (!InventorySystem->TryOpenWorldContainer(PC, ContainerUID, ErrorMessage))
-	{
-		// 打开失败（可能被其他玩家占用）
-		ClientOperationFailed(8, ErrorMessage);
+		ClientOperationFailed(8, TEXT("容器不存在"));
 		return;
 	}
 
@@ -425,15 +370,6 @@ bool UGaiaInventoryRPCComponent::ServerOpenWorldContainer_Validate(const FGuid& 
 
 void UGaiaInventoryRPCComponent::ServerCloseWorldContainer_Implementation(const FGuid& ContainerUID)
 {
-	if (UGaiaInventorySubsystem* InventorySystem = GetInventorySubsystem())
-	{
-		if (APlayerController* PC = GetOwningPlayerController())
-		{
-			// 在 Subsystem 中释放访问权
-			InventorySystem->CloseWorldContainer(PC, ContainerUID);
-		}
-	}
-
 	// 从打开的世界容器列表移除
 	OpenWorldContainerUIDs.Remove(ContainerUID);
 
@@ -448,21 +384,70 @@ bool UGaiaInventoryRPCComponent::ServerCloseWorldContainer_Validate(const FGuid&
 
 void UGaiaInventoryRPCComponent::ServerRequestRefreshInventory_Implementation()
 {
-	UE_LOG(LogGaia, Warning, TEXT("[RPC组件] ⭐ ServerRequestRefreshInventory 被调用"));
+	UE_LOG(LogGaia, Log, TEXT("[RPC组件] ServerRequestRefreshInventory 被调用"));
 	
 	UGaiaInventorySubsystem* InventorySystem = GetInventorySubsystem();
 	if (!InventorySystem)
 	{
-		UE_LOG(LogGaia, Error, TEXT("[RPC组件] ❌ 无法获取InventorySubsystem"));
+		UE_LOG(LogGaia, Error, TEXT("[RPC组件] 无法获取InventorySubsystem"));
 		return;
 	}
 
-	// 收集玩家相关的数据
+	// 收集所有需要同步的容器（包括嵌套容器）
+	TSet<FGuid> ContainerUIDsToSync;
+	TSet<FGuid> ProcessedContainers; // 防止循环引用导致的无限递归
+	
+	// 1. 添加玩家拥有的容器
+	for (const FGuid& UID : OwnedContainerUIDs)
+	{
+		if (UID.IsValid())
+		{
+			ContainerUIDsToSync.Add(UID);
+		}
+	}
+
+	// 2. 添加打开的世界容器
+	for (const FGuid& UID : OpenWorldContainerUIDs)
+	{
+		if (UID.IsValid())
+		{
+			ContainerUIDsToSync.Add(UID);
+		}
+	}
+
+	// 3. 递归收集嵌套容器
+	TArray<FGuid> ContainersToProcess = ContainerUIDsToSync.Array();
+	while (ContainersToProcess.Num() > 0)
+	{
+		FGuid CurrentContainerUID = ContainersToProcess.Pop();
+		
+		// 避免重复处理
+		if (ProcessedContainers.Contains(CurrentContainerUID))
+		{
+			continue;
+		}
+		ProcessedContainers.Add(CurrentContainerUID);
+		
+		// 获取容器中的所有物品
+		TArray<FGaiaItemInstance> Items = InventorySystem->GetItemsInContainer(CurrentContainerUID);
+		for (const FGaiaItemInstance& Item : Items)
+		{
+			// 如果物品有嵌套容器，添加到处理队列
+			if (Item.HasContainer() && !ProcessedContainers.Contains(Item.OwnedContainerUID))
+			{
+				ContainerUIDsToSync.Add(Item.OwnedContainerUID);
+				ContainersToProcess.Add(Item.OwnedContainerUID);
+			}
+		}
+	}
+
+	UE_LOG(LogGaia, Log, TEXT("[RPC组件] 需要同步的容器总数: %d (包括嵌套容器)"), ContainerUIDsToSync.Num());
+
+	// 收集数据
 	TArray<FGaiaItemInstance> PlayerItems;
 	TArray<FGaiaContainerInstance> PlayerContainers;
 
-	// 1. 收集玩家拥有的容器及其物品
-	for (const FGuid& ContainerUID : OwnedContainerUIDs)
+	for (const FGuid& ContainerUID : ContainerUIDsToSync)
 	{
 		FGaiaContainerInstance Container;
 		if (InventorySystem->FindContainerByUID(ContainerUID, Container))
@@ -475,21 +460,8 @@ void UGaiaInventoryRPCComponent::ServerRequestRefreshInventory_Implementation()
 		}
 	}
 
-	// 2. 收集打开的世界容器及其物品
-	for (const FGuid& ContainerUID : OpenWorldContainerUIDs)
-	{
-		FGaiaContainerInstance Container;
-		if (InventorySystem->FindContainerByUID(ContainerUID, Container))
-		{
-			PlayerContainers.Add(Container);
-
-			TArray<FGaiaItemInstance> Items = InventorySystem->GetItemsInContainer(ContainerUID);
-			PlayerItems.Append(Items);
-		}
-	}
-
 	// 发送给客户端
-	UE_LOG(LogGaia, Warning, TEXT("[RPC组件] ⭐ 调用 ClientReceiveInventoryData: %d 个物品, %d 个容器"),
+	UE_LOG(LogGaia, Log, TEXT("[RPC组件] 发送数据到客户端: %d 个物品, %d 个容器"),
 		PlayerItems.Num(), PlayerContainers.Num());
 	
 	ClientReceiveInventoryData(PlayerItems, PlayerContainers);
@@ -592,6 +564,20 @@ bool UGaiaInventoryRPCComponent::GetCachedContainer(const FGuid& ContainerUID, F
 		return true;
 	}
 	return false;
+}
+
+void UGaiaInventoryRPCComponent::AddOwnedContainerUID(const FGuid& ContainerUID)
+{
+	if (!ContainerUID.IsValid())
+	{
+		return;
+	}
+
+	if (!OwnedContainerUIDs.Contains(ContainerUID))
+	{
+		OwnedContainerUIDs.Add(ContainerUID);
+		UE_LOG(LogGaia, Verbose, TEXT("[RPC组件] 添加拥有的容器UID: %s"), *ContainerUID.ToString());
+	}
 }
 
 // ========================================

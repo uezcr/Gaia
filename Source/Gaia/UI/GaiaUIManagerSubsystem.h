@@ -55,7 +55,7 @@ public:
 	// ========================================
 
 	/**
-	 * 推入Widget到指定Layer
+	 * 推入Widget到指定Layer（通过类）
 	 * @param LayerTag Layer标签
 	 * @param WidgetClass Widget类
 	 * @return Widget实例
@@ -65,6 +65,29 @@ public:
 		FGameplayTag LayerTag,
 		TSubclassOf<UCommonActivatableWidget> WidgetClass
 	);
+
+	/**
+	 * 推入Widget到指定Layer（带初始化回调）
+	 * @param LayerTag Layer标签
+	 * @param WidgetClass Widget类
+	 * @param InitFunc 初始化回调函数
+	 * @return 创建的Widget实例
+	 */
+	template<typename WidgetT = UCommonActivatableWidget>
+	WidgetT* PushWidgetToLayerWithInit(
+		FGameplayTag LayerTag,
+		TSubclassOf<WidgetT> WidgetClass,
+		TFunctionRef<void(WidgetT&)> InitFunc
+	)
+	{
+		UGaiaPrimaryGameLayout* Layout = GetPrimaryGameLayout();
+		if (!Layout || !WidgetClass)
+		{
+			return nullptr;
+		}
+
+		return Layout->PushWidgetToLayerStack<WidgetT>(LayerTag, WidgetClass, InitFunc);
+	}
 
 	/**
 	 * 从Layer移除Widget
@@ -108,6 +131,14 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "Gaia|UI|Inventory")
 	bool IsContainerWindowOpen(const FGuid& ContainerUID) const;
+
+	/**
+	 * 通过物品UID打开容器（右键菜单调用）
+	 * 自动查找物品拥有的容器并打开
+	 * @param ItemUID 物品UID
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Gaia|UI|Inventory")
+	void OpenContainerByItemUID(const FGuid& ItemUID);
 
 protected:
 	/**
